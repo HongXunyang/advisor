@@ -1,0 +1,14 @@
+{
+    "app_name": "Ad-VISOR",
+    "app_version": "0.1.0",
+    "window_size": {
+        "width": 1200,
+        "height": 800 
+    },
+    "theme": "default",
+    "data_directory": "data",
+    "figures_directory": "figures",
+    "save_session_on_exit": true,
+    "show_welcome_screen": true,
+    "debug_mode": false
+} 

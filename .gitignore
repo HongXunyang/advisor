@@ -1,0 +1,61 @@
+/data
+/figures    
+/temp
+/reports
+.DS_Store
+**/.cursor/rules/
+/.cursor/rules/
+/materials
+__pycache__/
+# ignore docs/ 
+/docs
+
+
+# ignore all __pycache__ folders in all subfolders
+**/__pycache__/
+
+# --- Python bytecode & caches ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.coverage*
+htmlcov/
+# --- Virtual environments (common names) ---
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+.pythonenv/
+figures/
+
+
+# --- Build outputs (if needed in future) ---
+/build/
+/dist/
+/*.spec
+
+# --- Logs & local data ---
+*.log
+*.sqlite3
+*.db
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- Editors/IDEs ---
+.vscode/
+.idea/
+
+
+# --- Lagacy files ---
+lagacy/
+**/lagacy/

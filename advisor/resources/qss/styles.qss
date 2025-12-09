@@ -1,0 +1,348 @@
+/* Main application styles */
+
+QMainWindow {
+    background-color: #F5F5F5;
+}
+
+QTabWidget::pane {
+    border: 1px solid #C4C4C4;
+    background-color: #FFFFFF;
+}
+
+QTabBar::tab {
+    background-color:rgb(233, 233, 233);
+    border: 1px solid #C4C4C4;
+    border-bottom: none;
+    min-width: 100px;
+    padding: 6px 12px;
+    font-weight: bold;
+}
+
+QTabBar::tab:selected {
+    background-color: #FFFFFF;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: #EFEFEF;
+}
+
+/* Form elements */
+QLineEdit, QComboBox {
+    border: 1px solid #C4C4C4;
+    border-radius: 3px;
+    padding: 4px;
+    padding-right: 12x;
+    min-height: 24px;
+    background-color: #FFFFFF;
+}
+
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+    border: 1px solid #3D7AAF;
+}
+
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
+    background-color: #F5F5F5;
+    color: #9E9E9E;
+    border: 1px solid #E0E0E0;
+}
+
+QPushButton {
+    border: 1px solid #C4C4C4;
+    border-radius: 3px;
+    padding: 6px 12px;
+    background-color: #F0F0F0;
+    min-height: 28px;
+}
+
+QPushButton:hover {
+    background-color: #E6E6E6;
+}
+
+QPushButton:pressed {
+    background-color: #D6D6D6;
+}
+
+QPushButton:disabled {
+    color: #888888;
+    background-color: #F8F8F8;
+}
+
+/* QDoubleSpinBox with plus/minus signs */
+QDoubleSpinBox, QSpinBox{
+    border: 1px solid #C4C4C4;
+    border-radius: 3px;
+    padding: 4px;
+    padding-right: 20px;
+    min-height: 24px;
+    background-color: #FFFFFF;
+}
+
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button, QSpinBox::up-button, QSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 18px;
+    border-left: 1px solid #C4C4C4;
+    background-color: #F0F0F0;
+}
+
+QDoubleSpinBox::up-button, QSpinBox::up-button{
+    subcontrol-position: top right;
+}
+
+QDoubleSpinBox::down-button, QSpinBox::down-button {
+    subcontrol-position: bottom right;
+}
+
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover, QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #E6E6E6;
+}
+
+QDoubleSpinBox::up-button:pressed, QDoubleSpinBox::down-button:pressed, QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
+    background-color: #D6D6D6;
+}
+
+QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow, QSpinBox::up-arrow, QSpinBox::down-arrow {
+    width: 12px;
+    height: 12px;
+}
+
+QDoubleSpinBox::up-arrow, QSpinBox::up-arrow {
+    image: url(static/icons/plus.svg);
+    
+}
+
+QDoubleSpinBox::down-arrow, QSpinBox::down-arrow {
+    image: url(static/icons/minus.svg);
+}
+
+/* Toggle button styles */
+QPushButton[text="De-activate"] {
+    min-width: 100px;
+    background-color: #FFFFFF;  /* White background */
+    color: #757575;  /* Dark gray text */
+    border: 1px solid #E0E0E0;  /* Light gray border */
+}
+
+QPushButton[text="De-activate"]:checked {
+    background-color: #FFEBEE;  /* Very light red background */
+    color: #C62828;  /* Darker red text */
+    border: 1px solid #FFCDD2;  /* Light red border */
+}
+
+QPushButton[text="De-activate"]:hover {
+    background-color: #F5F5F5;  /* Slightly darker white on hover */
+    border: 1px solid #BDBDBD;  /* Slightly darker gray border on hover */
+}
+
+QPushButton[text="De-activate"]:checked:hover {
+    background-color: #FFCDD2;  /* Slightly darker light red on hover */
+    border: 1px solid #EF9A9A;  /* Slightly darker light red border on hover */
+}
+
+QPushButton[text="De-activate"]:pressed {
+    background-color: #EEEEEE;  /* Even darker white when pressed */
+    border: 1px solid #9E9E9E;  /* Even darker gray border when pressed */
+}
+
+QPushButton[text="De-activate"]:checked:pressed {
+    background-color: #EF9A9A;  /* Even darker light red when pressed */
+    border: 1px solid #E57373;  /* Even darker light red border when pressed */
+}
+
+/* Group boxes and panels */
+QGroupBox {
+    border: 1px solid #CCCCCC;
+    border-radius: 5px;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 3px;
+}
+
+/* Status bar */
+QStatusBar {
+    background-color: #F0F0F0;
+    color: #333333;
+}
+
+/* Tooltips */
+QToolTip {
+    border: 1px solid #CCCCCC;
+    background-color: #FFFFCC;
+    color: #333333;
+    padding: 3px;
+}
+
+/* Parameter Panel Styles */
+QFrame#parameterPanel {
+    background-color: #f8f9fa;
+    border: 1px solid #c0c0c0;
+    border-radius: 8px;
+    margin: 2px;
+}
+
+QLabel#parameterMainTitle {
+    color: #2c3e50;
+    font-family: Arial;
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+QLabel#parameterSectionTitle {
+    color: #34495e;
+    font-family: Arial;
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+    margin-bottom: 2px;
+}
+
+QLabel#parameterText {
+    color: #5d6d7e;
+    font-family: Arial;
+    font-size: 13px;
+    margin-left: 15px;
+    line-height: 1.3;
+}
+
+QPushButton#editParametersButton {
+    background-color: #F0F0F0;
+    color: #333333;
+    border: 1px solid #C4C4C4;
+    border-radius: 3px;
+    font-size: 13px;
+    padding: 6px;
+}
+
+QPushButton#editParametersButton:hover {
+    background-color: #E6E6E6;
+}
+
+QPushButton#editParametersButton:pressed {
+    background-color: #D6D6D6;
+}
+
+/* Pastel Calculate Button Styles */
+QPushButton#calculateButton {
+    background-color: #a8d0f0;
+    color: #2c5282;
+    border-radius: 3px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#calculateButton:hover {
+    background-color: #bdd9f3;
+}
+
+QPushButton#calculateButton:pressed {
+    background-color: #8bc5ea;
+}
+
+QPushButton#calculateButton:disabled {
+    background-color: #e6e6e6;
+    color: #999999;
+}
+
+/* Unified Pastel Calculate HKL Button */
+QPushButton#calculateHKLButton {
+    background-color: #a8d0f0;
+    color: #2c5282;
+    border-radius: 3px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#calculateHKLButton:hover {
+    background-color: #bdd9f3;
+}
+
+QPushButton#calculateHKLButton:pressed {
+    background-color: #8bc5ea;
+}
+
+QPushButton#calculateHKLButton:disabled {
+    background-color: #e6e6e6;
+    color: #999999;
+}
+
+/* Small Clear Button Styles */
+QPushButton#clearButton {
+    background-color: #f5f5f5;
+    color: #666666;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    max-height: 24px;
+}
+
+QPushButton#clearButton:hover {
+    background-color: #ff6b6b;
+    color: white;
+    border: 1px solid #ee5a52;
+}
+
+QPushButton#clearButton:pressed {
+    background-color: #ee5a52;
+    border: 1px solid #e04848;
+}
+
+/* Pastel Toggle Button Styles - Fix χ/φ and Plane Selection */
+QPushButton[class="activeToggle"] {
+    background-color: #a8e6c1; /* Pastel green - same hue as #2ecc71 but softer */
+    color: #2d5a3d; /* Darker green text for better contrast */
+    border: 1px solid #FFFFF;
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton[class="activeToggle"]:hover {
+    background-color: #9de0b7; /* Slightly darker on hover */
+    border: 1px solid #85cf9e;
+}
+
+QPushButton[class="activeToggle"]:pressed {
+    background-color: #92dab0; /* Even darker when pressed */
+    border: 1px solid #7bc994;
+}
+
+QPushButton[class="inactiveToggle"] {
+    background-color: #e8eaec; /* Pastel gray - same hue as #bdc3c7 but softer */
+    color: #5a6270; /* Darker gray text for better contrast */
+    border: 1px solid #FFFFFF;
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-size: 12px;
+}
+
+QPushButton[class="inactiveToggle"]:hover {
+    background-color: #dde1e5; /* Slightly darker on hover */
+    border: 1px solid #c9cfd5;
+}
+
+QPushButton[class="inactiveToggle"]:pressed {
+    background-color: #d2d8de; /* Even darker when pressed */
+    border: 1px solid #bec6ce;
+}
+
+
+/* HKL Results Table Styling */
+QTableWidgetItem[feasible="True"] {
+    background-color: #ffffff;  /* White background for feasible solutions */
+    color: #333333;
+}
+
+QTableWidgetItem[feasible="False"] {
+    background-color: #a62d2d;  /* Red background for infeasible solutions */
+    color: #333333;
+}

@@ -1,0 +1,5 @@
+PyQt5==5.15.11
+matplotlib==3.9.2
+numpy==2.0.2
+scipy==1.13.1
+Dans_Diffraction==3.3.3
