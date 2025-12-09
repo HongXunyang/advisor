@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Using the App · Ad-VISOR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Using the App</h1>
+  </header>
+  <div class="layout">
+    <aside>
+      <div class="nav-section">
+        <div class="nav-title">Navigate</div>
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="quickstart.html">Quickstart</a></li>
+          <li><a href="using_the_app.html">Using the App</a></li>
+          <li><a href="data_and_formats.html">Data &amp; Formats</a></li>
+          <li><a href="extending.html">Extending the App</a></li>
+          <li><a href="project_notes.html">Project Notes</a></li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <section>
+        <h2>Initialization window</h2>
+        <ul>
+          <li>Enter lattice constants (a, b, c) and angles (α, β, γ).</li>
+          <li>Enter beam energy (eV); wavelength and |k| update automatically.</li>
+          <li>Optional: drop a CIF file to auto-fill lattice parameters and preview the unit cell.</li>
+          <li>Euler angles (roll, pitch, yaw) update the coordinate visualizer live.</li>
+          <li>Click <strong>Initialize</strong> to pass parameters to all tabs and open the main interface.</li>
+        </ul>
+        <!-- TODO: Add a screenshot of the init window with callouts. -->
+      </section>
+
+      <section>
+        <h2>Main interface</h2>
+        <p>Tabs on the left host each feature. The status bar shows feedback; the toolbar includes a reset shortcut to return to init.</p>
+
+        <h3>Scattering Geometry tab</h3>
+        <ul>
+          <li>Convert angles ↔ HKL, scan HKL trajectories, and view scattering geometry.</li>
+          <li><strong>Angles → HKL</strong>: enter tth/θ/φ/χ, compute H,K,L, and see the geometry + unit cell.</li>
+          <li><strong>HKL → Angles</strong>: enter H,K,L, get feasible angles (feasible rows highlighted).</li>
+          <li><strong>HK scan</strong>: explore fixed-tth trajectories with the 3D visualizer.</li>
+          <li>Results tables use soft colors to flag feasible vs infeasible solutions.</li>
+        </ul>
+        <!-- TODO: Insert a 3–5s clip showing angles→HKL calculation and the plot update. -->
+
+        <h3>Structure Factor tab</h3>
+        <ul>
+          <li>Requires a CIF (from the init window) and an energy input in the tab.</li>
+          <li><strong>HKL plane</strong>: initialize, then view a 3D HKL cube with translucent planes and synced 2D slices (HK/HL/KL). Plane sliders update both 2D/3D views.</li>
+          <li><strong>Customized plane</strong>: pick arbitrary plane values and visualize structure factors on that slice.</li>
+          <li>Initialization status shows green/red messages; missing CIF prompts a warning.</li>
+        </ul>
+        <!-- TODO: Add a still image of the 3D HKL cube with highlighted planes. -->
+      </section>
+
+      <section>
+        <h2>Resetting</h2>
+        <p>Use the toolbar button or <strong>File → Reset Parameters</strong> to go back to the init window, clear the CIF lock, and re-enter parameters.</p>
+      </section>
+    </main>
+  </div>
+  <footer>
+    Ad-VISOR Documentation
+  </footer>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Extending the App · Ad-VISOR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Extending the App</h1>
+  </header>
+  <div class="layout">
+    <aside>
+      <div class="nav-section">
+        <div class="nav-title">Navigate</div>
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="quickstart.html">Quickstart</a></li>
+          <li><a href="using_the_app.html">Using the App</a></li>
+          <li><a href="data_and_formats.html">Data &amp; Formats</a></li>
+          <li><a href="extending.html">Extending the App</a></li>
+          <li><a href="project_notes.html">Project Notes</a></li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <section>
+        <h2>Feature anatomy</h2>
+        <ul>
+          <li><strong>Domain:</strong> pure Python calculators in <code>advisor/features/&lt;feature&gt;/domain/</code>.</li>
+          <li><strong>Controller:</strong> subclasses <code>FeatureController</code>, owns the calculator + view, forwards parameters.</li>
+          <li><strong>View:</strong> PyQt tab(s) in <code>advisor/features/&lt;feature&gt;/ui/</code>, typically subclassing <code>TabInterface</code>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Steps to add a feature</h2>
+        <ol>
+          <li>Create domain code and export via <code>__init__.py</code>.</li>
+          <li>Add a controller in <code>features/&lt;feature&gt;/controllers/</code> extending <code>FeatureController</code>.</li>
+          <li>Build the tab view in <code>features/&lt;feature&gt;/ui/</code> (and <code>ui/components/</code> if reusing widgets).</li>
+          <li>Register the controller in <code>AppController.features</code> so the tab appears.</li>
+          <li>Add an icon (optional) to <code>resources/icons/</code> and set <code>icon</code> on the controller.</li>
+        </ol>
+        <p>See <code>docs/feature_development.md</code> for a longer developer checklist.</p>
+        <!-- TODO: Add a simple diagram of domain → controller → view wiring. -->
+      </section>
+
+      <section>
+        <h2>Reusing shared pieces</h2>
+        <ul>
+          <li>Core geometry: <code>advisor/domain/geometry.py</code></li>
+          <li>Lattice/Sample/Lab: <code>advisor/domain/core/</code></li>
+          <li>Visualizers: <code>advisor/ui/visualizers/</code></li>
+          <li>Tips/config: <code>advisor/ui/tips.py</code> and <code>resources/config/tips.json</code></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Styling and UX</h2>
+        <ul>
+          <li>QSS: <code>resources/qss/styles.qss</code></li>
+          <li>Icons: <code>resources/icons/</code></li>
+          <li>Add tooltips by extending <code>resources/config/tips.json</code>.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer>
+    Ad-VISOR Documentation
+  </footer>
+</body>
+</html>

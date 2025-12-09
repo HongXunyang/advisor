@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quickstart · Ad-VISOR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Quickstart</h1>
+  </header>
+  <div class="layout">
+    <aside>
+      <div class="nav-section">
+        <div class="nav-title">Navigate</div>
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="quickstart.html">Quickstart</a></li>
+          <li><a href="using_the_app.html">Using the App</a></li>
+          <li><a href="data_and_formats.html">Data &amp; Formats</a></li>
+          <li><a href="extending.html">Extending the App</a></li>
+          <li><a href="project_notes.html">Project Notes</a></li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <section>
+        <h2>Requirements</h2>
+        <ul>
+          <li>Python 3.8+</li>
+          <li>Dependencies: PyQt5, numpy, scipy, matplotlib, Dans_Diffraction (see <code>requirements.txt</code>)</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Install</h2>
+        <pre><code>python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Run</h2>
+        <pre><code>python -m advisor
+# or
+python main.py
+</code></pre>
+      </section>
+
+      <section>
+        <h2>Minimal workflow</h2>
+        <ol>
+          <li>Launch the app.</li>
+          <li>Enter lattice constants/angles and beam energy, or drop a CIF file.</li>
+          <li>Click <strong>Initialize</strong>.</li>
+          <li>Switch between feature tabs (Brillouin / Structure Factor) to calculate and visualize.</li>
+        </ol>
+        <!-- TODO: Insert a short GIF of launching the app and initializing parameters. -->
+      </section>
+    </main>
+  </div>
+  <footer>
+    Ad-VISOR Documentation
+  </footer>
+</body>
+</html>

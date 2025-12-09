@@ -7,10 +7,6 @@
 /.cursor/rules/
 /materials
 __pycache__/
-# ignore docs/ 
-/docs
-
-
 # ignore all __pycache__ folders in all subfolders
 **/__pycache__/
 

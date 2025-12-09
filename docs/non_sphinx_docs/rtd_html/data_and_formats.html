@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data & Formats · Ad-VISOR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Data &amp; Formats</h1>
+  </header>
+  <div class="layout">
+    <aside>
+      <div class="nav-section">
+        <div class="nav-title">Navigate</div>
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="quickstart.html">Quickstart</a></li>
+          <li><a href="using_the_app.html">Using the App</a></li>
+          <li><a href="data_and_formats.html">Data &amp; Formats</a></li>
+          <li><a href="extending.html">Extending the App</a></li>
+          <li><a href="project_notes.html">Project Notes</a></li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <section>
+        <h2>Inputs</h2>
+        <ul>
+          <li><strong>Lattice parameters:</strong> a, b, c (Å) and α, β, γ (°).</li>
+          <li><strong>Beam energy:</strong> eV (wavelength and |k| derived automatically).</li>
+          <li><strong>CIF file (recommended):</strong> drop in the init window to auto-fill lattice and enable structure factor calculations.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>CIF handling</h2>
+        <ul>
+          <li>The init window parses <code>_cell_length_*</code> and <code>_cell_angle_*</code> from the CIF.</li>
+          <li>After a CIF is accepted, lattice inputs lock for the session; reset to change CIF.</li>
+          <li>The Structure Factor tab reuses the same CIF; it warns if none is provided.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Results (conceptual)</h2>
+        <ul>
+          <li><strong>Brillouin tab:</strong> HKL values, scattering angles, feasibility flags, and plots (geometry, HKL scans).</li>
+          <li><strong>Structure Factor tab:</strong> |F| values on HKL grids/planes in 3D and 2D.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Sample data</h2>
+        <p>A sample CIF is available at <code>resources/data/nacl.cif</code>.</p>
+        <!-- TODO: Provide a download link to sample CIFs when hosted, and a GIF of dropping one into the init window. -->
+      </section>
+
+      <section>
+        <h2>Potential exports</h2>
+        <p>The current UI focuses on visualization. Exporting plots or tables (images/CSV) can be added later.</p>
+        <!-- TODO: Document export steps once implemented. -->
+      </section>
+    </main>
+  </div>
+  <footer>
+    Ad-VISOR Documentation
+  </footer>
+</body>
+</html>
