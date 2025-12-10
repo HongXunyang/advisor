@@ -2,11 +2,8 @@
 
 Ad-VISOR is a PyQt5 desktop app for X-ray scattering/diffraction experiments. It helps you convert scattering angles ↔ momentum transfer (HKL), explore scattering geometry, and visualize structure factors—all with interactive plots. Full docs on *[Read the Docs](https://ad-visor.readthedocs.io/en/latest/)*.
 
-<video controls width="640" style="margin: 1em 0; border-radius: 8px; box-shadow: 0 2px 12px #0002;">
-  <source src="docs/source/_static/showcase.mp4" type="video/mp4">
-  Use the link below to view the demo video.
-</video>
-
+![Demo video](https://raw.githubusercontent.com/HongXunyang/advisor/main/docs/source/_static/showcase.gif)
+or use the link below to view the demo video.
 ▶  [Demo video (MP4)](https://raw.githubusercontent.com/HongXunyang/advisor/main/docs/source/_static/showcase.mp4)
 
 
