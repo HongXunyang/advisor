@@ -55,3 +55,7 @@ Thumbs.db
 # --- Lagacy files ---
 lagacy/
 **/lagacy/
+
+# --- test files ---
+test/
+**/test/

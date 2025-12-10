@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ad-visor"
+version = "0.1.1"
+description = "Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Proprietary" }  # Update if you choose an open-source license
+authors = [{ name = "Xunyang Hong" }]
+keywords = ["scattering", "reciprocal-space", "pyqt", "visualization"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "PyQt5>=5.15.11",
+  "matplotlib>=3.9.2",
+  "numpy>=2.0.2",
+  "scipy>=1.13.1",
+  "Dans_Diffraction>=3.3.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/HongXunyang/advisor"
+Documentation = "https://ad-visor.readthedocs.io/en/latest/"
+
+[project.scripts]
+ad-visor = "advisor.app:main"
+
+[tool.setuptools]
+include-package-data = true
+license-files = []
+
+[tool.setuptools.packages.find]
+include = ["advisor*"]
+
+[tool.setuptools.package-data]
+advisor = ["resources/**/*"]
