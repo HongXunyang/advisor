@@ -1,5 +1,8 @@
 # Ad-VISOR — Advanced Visual Scattering Toolkit for Reciprocal-space
 
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-green.svg)
+
 Ad-VISOR is a PyQt5 desktop app for X-ray scattering/diffraction experiments. It helps you convert scattering angles ↔ momentum transfer (HKL), explore scattering geometry, and visualize structure factors—all with interactive plots. Full docs on *[Read the Docs](https://ad-visor.readthedocs.io/en/latest/)*.
 
 ![Demo video](https://raw.githubusercontent.com/HongXunyang/advisor/main/docs/source/_static/showcase.gif)
@@ -34,10 +37,13 @@ pip install .
 ```bash
 ad-visor
 # or
-python -m advisor
+advisor
 # or
-python main.py
+python -m advisor
 ```
+
+*Note: the install command is `pip install ad-visor`, and the import is `import advisor`*.
+
 ------
 
 ## Minimal workflow (60 seconds)

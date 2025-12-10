@@ -8,19 +8,32 @@ Requirements
 
 Install
 -------
-:: 
+Pick one of the following:
 
-   python -m venv .venv
-   source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-   pip install -r requirements.txt
+- From PyPI (recommended)::
+
+    pip install ad-visor
+
+
+- From GitHub (latest main)::
+
+    git clone https://github.com/HongXunyang/advisor.git
+    cd advisor
+    python -m venv .venv
+    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+    pip install -r requirements.txt
+    pip install .
 
 Run
 ---
-:: 
+::
 
-   python -m advisor
+   ad-visor
    # or
-   python main.py
+   advisor
+   # or
+   python -m advisor
+
 
 Minimal workflow
 ----------------
