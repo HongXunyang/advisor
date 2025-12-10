@@ -2,10 +2,11 @@
 
 Ad-VISOR is a PyQt5 desktop app for scattering/diffraction prep. It helps you convert scattering angles ↔ momentum transfer (HKL), explore scattering geometry, and visualize structure factors—all with interactive plots. Full docs on *[Read the Docs](https://ad-visor.readthedocs.io/en/latest/)*.
 
-<video controls width="640" style="margin: 1em 0; border-radius: 8px; box-shadow: 0 2px 12px #0002;">
-  <source src="docs/source/_static/showcase.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+PyPI/TestPyPI does not reliably render embedded HTML video tags, so the MP4 is linked here:
+
+▶ [Demo video (MP4)](https://raw.githubusercontent.com/HongXunyang/advisor/v0.1.1/docs/source/_static/showcase.mp4)  
+
+
 
 ## Features
 - Convert scattering angles to HKL and HKL to angles, including fixed-2θ scans.
@@ -45,7 +46,7 @@ python main.py
 3) Click **Initialize**.  
 4) Use the feature tabs (Scattering Geometry / Structure Factor) to calculate and visualize.
 
-![Init flow](docs/source/_static/init.gif)
+![Init flow](https://raw.githubusercontent.com/HongXunyang/advisor/v0.1.1/docs/source/_static/init.gif)
 
 ## Using the app
 ### Init window
@@ -58,14 +59,14 @@ python main.py
 - HKL → Angles: enter HKL, compute feasible angles.
 - HK to Angles (fixed 2θ) and HKL scan (fixed 2θ) subtabs for trajectory planning.
 
-![Scattering geometry demo](docs/source/_static/scattering_geometry_tab_demo.gif)
+![Scattering geometry demo](https://raw.githubusercontent.com/HongXunyang/advisor/v0.1.1/docs/source/_static/scattering_geometry_tab_demo.gif)
 
 ### Structure Factor tab
 - Requires a CIF (from init) and an energy in the tab.
 - HKL plane: explore a 3D HKL cube with linked HK/HL/KL slices.
 - Customized plane: choose U/V vectors and a center to sample an arbitrary plane in reciprocal space.
 
-![Structure factor demo](docs/source/_static/structure_factor_tab_demo.gif)
+![Structure factor demo](https://raw.githubusercontent.com/HongXunyang/advisor/v0.1.1/docs/source/_static/structure_factor_tab_demo.gif)
 
 ### Resetting
 Use the toolbar button or **File → Reset Parameters** to return to the init window, clear the CIF lock, and re-enter parameters.
