@@ -18,10 +18,14 @@ def load_stylesheet() -> str:
 
 
 def add_icon_search_path() -> None:
-    """Register a Qt search path so QSS `url(icons/...)` resolves after install."""
+    """Register a Qt search path so QSS `url(icons:...)` resolves after install."""
     icons_dir = Path(__file__).resolve().parent / "resources" / "icons"
-    if icons_dir.exists():
-        QDir.addSearchPath("icons", icons_dir.as_posix())
+    # Debug: print warnings for missing icons to help diagnose packaging issues
+    for icon_name in ("plus.svg", "minus.svg"):
+        icon_path = icons_dir / icon_name
+        if not icon_path.exists():
+            print(f"Warning: Icon not found at {icon_path}. Icons may not display correctly.")
+    QDir.addSearchPath("icons", str(icons_dir))
 
 
 def main():
