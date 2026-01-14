@@ -106,12 +106,12 @@ QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow, QSpinBox::up-arrow, QSpinB
 }
 
 QDoubleSpinBox::up-arrow, QSpinBox::up-arrow {
-    image: url(advisor/resources/icons/plus.svg);
+    image: url(icons:plus.svg);
     
 }
 
 QDoubleSpinBox::down-arrow, QSpinBox::down-arrow {
-    image: url(advisor/resources/icons/minus.svg);
+    image: url(icons:minus.svg);
 }
 
 /* Toggle button styles */

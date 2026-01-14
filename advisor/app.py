@@ -1,21 +1,27 @@
 """Application bootstrap for Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)."""
 
-import os
 import sys
+from pathlib import Path
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt, QLocale
+from PyQt5.QtCore import Qt, QLocale, QDir
 
 from advisor.controllers import AppController
 
 
 def load_stylesheet() -> str:
     """Load QSS stylesheet if present."""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    qss_path = os.path.join(base_dir, "resources", "qss", "styles.qss")
-    if os.path.exists(qss_path):
-        with open(qss_path, "r", encoding="utf-8") as handle:
-            return handle.read()
+    base_dir = Path(__file__).resolve().parent
+    qss_path = base_dir / "resources" / "qss" / "styles.qss"
+    if qss_path.exists():
+        return qss_path.read_text(encoding="utf-8")
     return ""
+
+
+def add_icon_search_path() -> None:
+    """Register a Qt search path so QSS `url(icons/...)` resolves after install."""
+    icons_dir = Path(__file__).resolve().parent / "resources" / "icons"
+    if icons_dir.exists():
+        QDir.addSearchPath("icons", icons_dir.as_posix())
 
 
 def main():
@@ -26,6 +32,8 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Ad-VISOR")
     QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
+
+    add_icon_search_path()
     app.setStyleSheet(load_stylesheet())
 
     controller = AppController(app)
