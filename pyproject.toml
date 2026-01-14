@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ad-visor"
-version = "0.2.6"
+version = "0.2.7"
 description = "Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -42,4 +42,4 @@ license-files = []
 include = ["advisor*"]
 
 [tool.setuptools.package-data]
-advisor = ["resources/**/*", "resources/**/*.svg", "resources/**/*.png", "resources/**/*.jpg", "resources/**/*.qss"]
+advisor = ["resources/**/*"]

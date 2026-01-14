@@ -1,2 +1,2 @@
 include README.md
-recursive-include advisor/resources *.svg *.png *.jpg *.qss *.gif
+recursive-include advisor/resources *

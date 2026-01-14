@@ -1,30 +1,21 @@
 """Application bootstrap for Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)."""
 
+import os
 import sys
-from pathlib import Path
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt, QLocale
 
 from advisor.controllers import AppController
 
 
-def _icon_path(name: str) -> str:
-    """Return absolute path to an icon in the resources/icons folder."""
-    return str(Path(__file__).resolve().parent / "resources" / "icons" / name)
-
-
 def load_stylesheet() -> str:
-    """Load QSS stylesheet and resolve icon paths."""
-    base_dir = Path(__file__).resolve().parent
-    qss_path = base_dir / "resources" / "qss" / "styles.qss"
-    if not qss_path.exists():
-        return ""
-    
-    qss = qss_path.read_text(encoding="utf-8")
-    # Replace icon placeholders with absolute paths
-    qss = qss.replace("{{PLUS_ICON}}", _icon_path("plus.svg"))
-    qss = qss.replace("{{MINUS_ICON}}", _icon_path("minus.svg"))
-    return qss
+    """Load QSS stylesheet if present."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    qss_path = os.path.join(base_dir, "resources", "qss", "styles.qss")
+    if os.path.exists(qss_path):
+        with open(qss_path, "r", encoding="utf-8") as handle:
+            return handle.read()
+    return ""
 
 
 def main():
@@ -35,7 +26,6 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Ad-VISOR")
     QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
-
     app.setStyleSheet(load_stylesheet())
 
     controller = AppController(app)
