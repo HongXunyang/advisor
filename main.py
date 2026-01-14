@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# lanuch
 """Launch Ad-VISOR."""
 
 from advisor.app import main

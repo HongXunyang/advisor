@@ -59,3 +59,5 @@ lagacy/
 # --- test files ---
 test/
 **/test/
+
+update_instructions.md
