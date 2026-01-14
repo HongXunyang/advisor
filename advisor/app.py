@@ -3,29 +3,28 @@
 import sys
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt, QLocale, QDir
+from PyQt5.QtCore import Qt, QLocale
 
 from advisor.controllers import AppController
 
 
+def _icon_path(name: str) -> str:
+    """Return absolute path to an icon in the resources/icons folder."""
+    return str(Path(__file__).resolve().parent / "resources" / "icons" / name)
+
+
 def load_stylesheet() -> str:
-    """Load QSS stylesheet if present."""
+    """Load QSS stylesheet and resolve icon paths."""
     base_dir = Path(__file__).resolve().parent
     qss_path = base_dir / "resources" / "qss" / "styles.qss"
-    if qss_path.exists():
-        return qss_path.read_text(encoding="utf-8")
-    return ""
-
-
-def add_icon_search_path() -> None:
-    """Register a Qt search path so QSS `url(icons:...)` resolves after install."""
-    icons_dir = Path(__file__).resolve().parent / "resources" / "icons"
-    # Debug: print warnings for missing icons to help diagnose packaging issues
-    for icon_name in ("plus.svg", "minus.svg"):
-        icon_path = icons_dir / icon_name
-        if not icon_path.exists():
-            print(f"Warning: Icon not found at {icon_path}. Icons may not display correctly.")
-    QDir.addSearchPath("icons", str(icons_dir))
+    if not qss_path.exists():
+        return ""
+    
+    qss = qss_path.read_text(encoding="utf-8")
+    # Replace icon placeholders with absolute paths
+    qss = qss.replace("{{PLUS_ICON}}", _icon_path("plus.svg"))
+    qss = qss.replace("{{MINUS_ICON}}", _icon_path("minus.svg"))
+    return qss
 
 
 def main():
@@ -37,7 +36,6 @@ def main():
     app.setApplicationName("Ad-VISOR")
     QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
 
-    add_icon_search_path()
     app.setStyleSheet(load_stylesheet())
 
     controller = AppController(app)
