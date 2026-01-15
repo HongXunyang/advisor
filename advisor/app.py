@@ -29,6 +29,8 @@ def main():
     QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
     app.setStyleSheet(load_stylesheet())
 
+
+
     controller = AppController(app)
     controller.show()
 

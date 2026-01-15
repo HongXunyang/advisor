@@ -105,14 +105,8 @@ QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow, QSpinBox::up-arrow, QSpinB
     height: 12px;
 }
 
-QDoubleSpinBox::up-arrow, QSpinBox::up-arrow {
-    image: url(:/icons/plus.svg);
-    
-}
 
-QDoubleSpinBox::down-arrow, QSpinBox::down-arrow {
-    image: url(:/icons/minus.svg);
-}
+
 
 /* Toggle button styles */
 QPushButton[text="De-activate"] {
@@ -299,7 +293,7 @@ QPushButton#clearButton:pressed {
 QPushButton[class="activeToggle"] {
     background-color: #a8e6c1; /* Pastel green - same hue as #2ecc71 but softer */
     color: #2d5a3d; /* Darker green text for better contrast */
-    border: 1px solid #FFFFF;
+    border: 1px solid #FFFFFF;
     border-radius: 3px;
     padding: 3px 6px;
     font-weight: bold;
