@@ -106,8 +106,6 @@ QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow, QSpinBox::up-arrow, QSpinB
 }
 
 
-
-
 /* Toggle button styles */
 QPushButton[text="De-activate"] {
     min-width: 100px;

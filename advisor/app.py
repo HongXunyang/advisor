@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt, QLocale, QFile, QIODevice
 
 from advisor.controllers import AppController
-from advisor.resources import resources_rc
+
 
 
 def load_stylesheet() -> str:
