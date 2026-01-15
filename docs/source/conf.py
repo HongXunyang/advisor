@@ -41,7 +41,7 @@ except Exception:
 html_static_path = ['_static']
 
 # Logo
-html_logo = '../logo/advisor_scattering_logo.png'
+html_logo = '../logo/ad_visor_logo.png'
 html_theme_options = {
     "collapse_navigation": False,
     "navigation_depth": 2,
