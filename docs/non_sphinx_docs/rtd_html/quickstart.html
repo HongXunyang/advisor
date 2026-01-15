@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quickstart · Ad-VISOR</title>
+  <title>Quickstart · Advisor-Scattering</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -35,17 +35,22 @@
 
       <section>
         <h2>Install</h2>
-        <pre><code>python -m venv .venv
+        <pre><code>pip install advisor-scattering
+# or from source:
+python -m venv .venv
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
+pip install .
 </code></pre>
       </section>
 
       <section>
         <h2>Run</h2>
-        <pre><code>python -m advisor
+        <pre><code>advisor-scattering
 # or
-python main.py
+advisor
+# or
+python -m advisor
 </code></pre>
       </section>
 
@@ -62,7 +67,7 @@ python main.py
     </main>
   </div>
   <footer>
-    Ad-VISOR Documentation
+    Advisor-Scattering Documentation
   </footer>
 </body>
 </html>

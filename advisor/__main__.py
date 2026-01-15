@@ -1,4 +1,4 @@
-"""Entrypoint for running Ad-VISOR as a module."""
+"""Entrypoint for running Advisor-Scattering as a module."""
 
 from .app import main
 

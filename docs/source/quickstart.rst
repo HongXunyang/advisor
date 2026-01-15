@@ -12,7 +12,7 @@ Pick one of the following:
 
 - From PyPI (recommended)::
 
-    pip install ad-visor
+    pip install advisor-scattering
 
 
 - From GitHub (latest main)::
@@ -28,7 +28,7 @@ Run
 ---
 ::
 
-   ad-visor
+   advisor-scattering
    # or
    advisor
    # or

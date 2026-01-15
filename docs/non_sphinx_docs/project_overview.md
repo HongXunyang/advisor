@@ -1,6 +1,6 @@
 # Project Overview (Plain English)
 
-Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space) helps with X-ray scattering/diffraction prep by keeping the math separated from the PyQt UI. Here’s how it is organized and how it works at runtime.
+Advisor-Scattering (Advanced Visual Scattering Toolkit for Reciprocal-space) helps with X-ray scattering/diffraction prep by keeping the math separated from the PyQt UI. Here's how it is organized and how it works at runtime.
 
 ## How the app starts
 - You run `python main.py` (or `python -m advisor`).
@@ -19,7 +19,7 @@ Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space) helps with X-
 - `main.py` – convenience entrypoint in the repo root.
 
 ## Key ideas (not too technical)
-- **Keep the UI dumb.** Buttons, forms, and plots live in `ui/` or `features/*/ui/`. They don’t do heavy calculations themselves.
+- **Keep the UI dumb.** Buttons, forms, and plots live in `ui/` or `features/*/ui/`. They don't do heavy calculations themselves.
 - **Put the math in the domain.** Calculators and geometry helpers live in `domain/` or `features/*/domain/`. No PyQt imports there.
 - **Controllers glue things together.** Each feature controller owns its calculator and its tab, passes parameters down, and reacts to init/reset events from the app.
 - **No registry files.** Tabs are added in one place: `AppController` builds a list of feature controllers and inserts their tabs. Adding a new feature = add controller + tab + calculator, then list it in `AppController`.

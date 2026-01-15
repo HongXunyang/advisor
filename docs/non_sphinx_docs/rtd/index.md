@@ -1,8 +1,8 @@
-# Ad-VISOR Docs
+# Advisor-Scattering Docs
 
 ![Ad-VISOR Logo](../../logo/ad_visor_logo.png)
 
-Welcome to the documentation for the Ad-VISOR, a PyQt5-based app for X-ray scattering/diffraction prep. Use the sections below to install the app, understand the UI flow, and learn how to extend it.
+Welcome to the documentation for Advisor-Scattering, a PyQt5-based app for X-ray scattering/diffraction prep. Use the sections below to install the app, understand the UI flow, and learn how to extend it.
 
 - [Quickstart](quickstart.md) — install and run in two minutes.
 - [Using the App](using_the_app.md) — guided tour of the init window and feature tabs.

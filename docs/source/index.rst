@@ -3,10 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Ad-VISOR (Advanced VIsual Scattering Toolkit for Reciprocal-space)
-==================================================================
+Advisor-Scattering (Advanced Visual Scattering Toolkit for Reciprocal-space)
+=============================================================================
 
-Documentation for Ad-VISOR, a PyQt5-based desktop app to explore scattering geometry, convert
+Documentation for Advisor-Scattering, a PyQt5-based desktop app to explore scattering geometry, convert
 scattering angles to momentum transfer in reciprocal space and vice versa, and visualize structure
 factors. 
 

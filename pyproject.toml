@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ad-visor"
+name = "advisor-scattering"
 version = "0.5.0"
-description = "Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)"
+description = "Advisor-Scattering: Advanced Visual Scattering Toolkit for Reciprocal-space"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "Proprietary" }  # Update if you choose an open-source license
@@ -28,10 +28,10 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/HongXunyang/advisor"
-Documentation = "https://ad-visor.readthedocs.io/en/latest/"
+Documentation = "https://advisor-scattering.readthedocs.io/en/latest/"
 
 [project.scripts]
-ad-visor = "advisor.app:main"
+advisor-scattering = "advisor.app:main"
 advisor = "advisor.app:main"
 
 [tool.setuptools]

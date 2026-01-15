@@ -1,4 +1,4 @@
-"""Main window view for Ad-VISOR."""
+"""Main window view for Advisor-Scattering."""
 
 import os
 from typing import Optional
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
 
     def _setup_window(self):
         config = getattr(self.controller, "config", {}) or {}
-        self.setWindowTitle(config.get("app_name", "Ad-VISOR"))
+        self.setWindowTitle(config.get("app_name", "Advisor-Scattering"))
         window_size = config.get("window_size", {"width": 1200, "height": 800})
         self.resize(window_size.get("width", 1200), window_size.get("height", 800))
 
@@ -163,8 +163,8 @@ class MainWindow(QMainWindow):
     def _show_about(self):
         QMessageBox.about(
             self,
-            "About Ad-VISOR",
-            "<b>Ad-VISOR</b><p>A PyQt5-based application for X-ray scattering and diffraction preparation.</p>",
+            "About Advisor-Scattering",
+            "<b>Advisor-Scattering</b><p>A PyQt5-based application for X-ray scattering and diffraction preparation.</p>",
         )
 
     def _icon_path(self, name: Optional[str]) -> Optional[str]:

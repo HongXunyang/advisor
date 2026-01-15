@@ -6,8 +6,8 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Ad-VISOR'
-html_title = 'Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)'
+project = 'Advisor-Scattering'
+html_title = 'Advisor-Scattering (Advanced Visual Scattering Toolkit for Reciprocal-space)'
 copyright = '2025, Xunyang_Hong'
 author = 'Xunyang_Hong'
 
@@ -41,7 +41,7 @@ except Exception:
 html_static_path = ['_static']
 
 # Logo
-html_logo = '../logo/ad_visor_logo.png'
+html_logo = '../logo/advisor_scattering_logo.png'
 html_theme_options = {
     "collapse_navigation": False,
     "navigation_depth": 2,

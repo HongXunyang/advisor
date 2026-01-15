@@ -64,6 +64,6 @@ class AppController:
                 return json.load(handle)
         except Exception:
             return {
-                "app_name": "Ad-VISOR",
+                "app_name": "Advisor-Scattering",
                 "window_size": {"width": 1200, "height": 800},
             }

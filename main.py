@@ -1,5 +1,5 @@
-# lanuch
-"""Launch Ad-VISOR."""
+# launch
+"""Launch Advisor-Scattering."""
 
 from advisor.app import main
 

@@ -1,4 +1,4 @@
-"""Application bootstrap for Ad-VISOR (Advanced Visual Scattering Toolkit for Reciprocal-space)."""
+"""Application bootstrap for Advisor-Scattering (Advanced Visual Scattering Toolkit for Reciprocal-space)."""
 
 import os
 import sys
@@ -25,7 +25,7 @@ def main():
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Ad-VISOR")
+    app.setApplicationName("Advisor-Scattering")
     QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
     app.setStyleSheet(load_stylesheet())
 

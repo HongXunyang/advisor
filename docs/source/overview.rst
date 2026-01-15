@@ -1,7 +1,7 @@
 Overview
 ========
 
-The Ad-VISOR is a python-based desktop GUI toolkits for scattering and diffraction experiments. It visualizes
+Advisor-Scattering is a python-based desktop GUI toolkit for scattering and diffraction experiments. It visualizes
 the scattering geometry, momentum transfer in reciprocal space, and more. Currently it is tailored
 for X-ray scattering and X-ray diffraction experiments. 
 
@@ -43,5 +43,4 @@ Layout at a glance
         ui/           shared UI pieces (init window, main window, base tab, visualizers)
         resources/    QSS, icons, config JSON, sample data
     docs/             Sphinx sources (this folder)
-
 

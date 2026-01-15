@@ -1,9 +1,9 @@
-# Ad-VISOR — Advanced Visual Scattering Toolkit for Reciprocal-space
+# Advisor-Scattering — Advanced Visual Scattering Toolkit for Reciprocal-space
 
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-green.svg)
 
-Ad-VISOR is a PyQt5 desktop app for X-ray scattering/diffraction experiments. It helps you convert scattering angles ↔ momentum transfer (HKL), explore scattering geometry, and visualize structure factors—all with interactive plots. Full docs on *[Read the Docs](https://ad-visor.readthedocs.io/en/latest/)*.
+Advisor-Scattering is a PyQt5 desktop app for X-ray scattering/diffraction experiments. It helps you convert scattering angles ↔ momentum transfer (HKL), explore scattering geometry, and visualize structure factors—all with interactive plots. Full docs on *[Read the Docs](https://advisor-scattering.readthedocs.io/en/latest/)*.
 
 ![Demo video](https://raw.githubusercontent.com/HongXunyang/advisor/main/docs/source/_static/showcase.gif)
 or use the link below to view the demo video.
@@ -22,7 +22,7 @@ or use the link below to view the demo video.
 
 From PyPI:
 ```bash
-pip install ad-visor
+pip install advisor-scattering
 ```
 
 From source:
@@ -35,14 +35,14 @@ pip install .
 
 ## Run
 ```bash
-ad-visor
+advisor-scattering
 # or
 advisor
 # or
 python -m advisor
 ```
 
-*Note: the install command is `pip install ad-visor`, and the import is `import advisor`*.
+*Note: the install command is `pip install advisor-scattering`, and the import is `import advisor`*.
 
 ------
 
@@ -96,5 +96,5 @@ docs/             Sphinx sources and assets
 ```
 
 ## Documentation
-- Full Sphinx docs live in `docs/` and on *[Read the Docs](https://ad-visor.readthedocs.io/en/latest/)*.
+- Full Sphinx docs live in `docs/` and on *[Read the Docs](https://advisor-scattering.readthedocs.io/en/latest/)*.
 - Appendix covers scattering angle definitions and HKL conventions.
