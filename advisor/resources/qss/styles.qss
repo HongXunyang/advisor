@@ -105,6 +105,14 @@ QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow, QSpinBox::up-arrow, QSpinB
     height: 12px;
 }
 
+QDoubleSpinBox::up-arrow, QSpinBox::up-arrow {
+    image: url(:/icons/plus.svg);
+}
+
+QDoubleSpinBox::down-arrow, QSpinBox::down-arrow {
+    image: url(:/icons/minus.svg);
+}
+
 
 /* Toggle button styles */
 QPushButton[text="De-activate"] {
