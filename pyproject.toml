@@ -8,13 +8,13 @@ version = "0.5.0"
 description = "Advisor-Scattering: Advanced Visual Scattering Toolkit for Reciprocal-space"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "Proprietary" }  # Update if you choose an open-source license
+license = { text = "MIT" }
 authors = [{ name = "Xunyang Hong" }]
 keywords = ["scattering", "reciprocal-space", "pyqt", "visualization"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "License :: Other/Proprietary License",
+  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering",
 ]
