@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "advisor-scattering"
-version = "0.5.0"
-description = "Advisor-Scattering: Advanced Visual Scattering Toolkit for Reciprocal-space"
+version = "0.5.1"
+description = "Advisor-Scattering: Advanced Visual X-ray Scattering Toolkit for Reciprocal-space visualization and calculation"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [{ name = "Xunyang Hong" }]
-keywords = ["scattering", "reciprocal-space", "pyqt", "visualization"]
+keywords = ["scattering", "reciprocal-space", "pyqt", "visualization", "x-ray scattering", "x-ray diffraction"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -36,7 +36,7 @@ advisor = "advisor.app:main"
 
 [tool.setuptools]
 include-package-data = true
-license-files = []
+license-files = ["LICENSE"]
 
 [tool.setuptools.packages.find]
 include = ["advisor*"]
