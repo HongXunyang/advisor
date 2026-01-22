@@ -22,7 +22,7 @@ Main interface
 Tabs on the left host each feature. The status bar shows feedback; the toolbar includes a reset shortcut to return to init window.
 
 1. Scattering Geometry tab
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 This tab converts scattering angles to momentum transfer in reciprocal space and vice versa, and visualize the scattering geometry. 
 
 **Scattering angles and momentum transfer HKL:** See the :doc:`appendix` for definitions; the tab provides visuals while you enter them.
@@ -50,7 +50,7 @@ This tab converts scattering angles to momentum transfer in reciprocal space and
 
 
 2. Structure Factor tab
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 Requires a CIF (from the init window) and an energy input in the tab.
 
 .. image:: _static/structure_factor_tab_demo.gif

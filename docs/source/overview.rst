@@ -1,7 +1,7 @@
 Overview
 ========
 
-Advisor-Scattering is a python-based desktop GUI toolkit for scattering and diffraction experiments. It visualizes
+ADVISOR is a python-based desktop GUI toolkit for scattering and diffraction experiments. It visualizes
 the scattering geometry, momentum transfer in reciprocal space, and more. Currently it is tailored
 for X-ray scattering and X-ray diffraction experiments. 
 

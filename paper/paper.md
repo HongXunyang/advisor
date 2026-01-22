@@ -1,10 +1,12 @@
 ---
-title: 'Advisor-Scattering: A Visual Toolkit for X-ray Scattering Geometry and Structure Factor Exploration'
+title: 'ADVISOR: ADvanced VIsualization of Scattering ORientation'
 tags:
   - Python
   - X-ray scattering
   - X-ray diffraction
-  - Reciprocal space
+  - Condensed matter physics
+  - physics
+  - experimental physics
   - Structure factor
   - Data visualization
 authors:
@@ -34,81 +36,97 @@ bibliography: paper.bib
 # Summary
 
 X-ray scattering and diffraction experiments are fundamental techniques for 
-probing the atomic structure of crystalline materials. These experiments 
+probing the crystal structure and internal collective excitations. These experiments 
 require careful planning of scattering geometry and understanding of the 
 relationship between instrumental angles and momentum transfer in reciprocal 
-space. Advisor-Scattering is a Python-based desktop application that provides 
-interactive visualization and calculation tools for X-ray scattering 
-experiment preparation. The software enables researchers to convert between 
-scattering angles and Miller indices (HKL), visualize scattering geometry in 
+space. 
+
+
+
+
+ADVISOR = ADvanced VIsualization of Scattering ORientation, a Python-based desktop application that provides 
+interactive visualization and calculation tools for X-ray scattering and diffraction 
+experiment. The software enables researchers to convert between 
+instrumental geometry angles $2\theta$, $\theta$, $\phi$, $\chi$,  and momentum transfer $(H, K, L)$ in reciprocal space, visualize scattering geometry in 
 three dimensions, and explore structure factors across reciprocal space 
 planes—all through an intuitive graphical interface.
 
 
 
 # Statement of need
+**X-ray scattering**, when energy-resolved, access to collective excitations such as phonons and
+other elementary modes—capabilities that make synchrotron-based scattering central to modern
+condensed-matter and materials physics [@ament2011; @fink2013, @mitrano2024, @baron2020]. In
+contrast, **X-ray diffraction** focuses on Bragg scattering from periodic order, providing
+quantitative determination of lattice parameters, symmetry, crystal structure,
+strain/microstructure, and phase fractions that underpin structure–property studies and
+phase-transition physics [@cullity1986; @bunaciu2015]. Beyond physics, X-ray diffraction also has broad applications in method in
+**chemistry** (structure determination and solid-state phase analysis) and in **geology/mineralogy**
+(mineral identification and quantitative phase analysis of complex mixtures) [@fitch2025;
+@ali2022minerals].
 
-Planning X-ray scattering experiments requires navigating complex 
-relationships between instrumental coordinates (diffractometer angles) and 
-reciprocal space coordinates (HKL indices). Experimentalists must determine 
-which angular configurations will access specific Bragg reflections, account 
-for sample orientation, and assess which reflections are kinematically 
-accessible at a given photon energy. These calculations, while 
-well-established in theory [@busing1967; @you1999], can be tedious and 
-error-prone when performed manually, particularly for non-orthogonal crystal 
-systems.
+
+X-ray scattering and X-ray diffraction experiments are typically carried out at synchrotron
+beamlines. Beamtime at synchrotrons is usually highly competitive and only a fraction of requested
+beamtime can be granted. Therefore, it is crucial to carefully plan ahead, and make rapid decision
+during the allocated beamtime to maximize the scientific output. This practical constraint motivates
+fast, user-friendly visualization and planning software tools. 
+Planning and quick decision making for X-ray scattering or diffraction experiments requires converting between instrumental coordinates and reciprocal space coordinates. 
+
+Experimentalists must (1) determine 
+which angular configurations $(2\theta, \theta, \phi, \chi)$
+will access specific momentum transfer $(H, K, L)$
+(for scattering experiments) or Bragg reflections
+(for diffraction experiments) and vice versa; (2) assess which reflections are kinematically 
+accessible at a given photon energy. Although 
+well-established in theory [@busing1967; @lumsden2005], these calculations can be tedious and prone
+to errors when performed manually, particularly for non-orthogonal crystal 
+systems. 
 
 Furthermore, understanding the intensity distribution of structure factors 
 across reciprocal space is essential for identifying strong reflections and 
-planning efficient measurement strategies. While diffractometer control 
-software and crystallographic packages exist, many are either proprietary, 
-lack interactive visualization capabilities, or require significant expertise 
-to operate [@spec; @sardana; @bluesky].
+planning efficient measurement strategies. While crystallographic packages [@olex2; @shelx, @vesta;
+@recipro] exist, many are either heavy-weight, or
+lack interactive visualization capabilities for exploring reciprocal space. They are not specifically
+tailored for quick geometry-momentum conversions. 
 
-Advisor-Scattering addresses these needs by providing an open-source, 
-cross-platform tool that combines:
+ADVISOR addresses these needs by providing an open-source tool that combines:
 
 1. **Bidirectional angle-HKL conversion** with real-time feasibility checking
 2. **Interactive 3D visualization** of scattering geometry and crystal structures
 3. **Structure factor exploration** across arbitrary planes in reciprocal space
 4. **CIF file integration** for automatic lattice parameter extraction
 
-The software is designed for beamline scientists, graduate students, and 
-researchers preparing synchrotron or laboratory X-ray scattering experiments, 
-offering immediate visual feedback that accelerates experiment planning and 
-deepens understanding of reciprocal space geometry.
+![functionalities](functions.png)
+
+
+The software is designed for beamline scientists and 
+researchers preparing synchrotron or laboratory X-ray scattering/diffraction experiments, 
+offering immediate visual feedback that accelerates experiment planning and decision making. More
+details can be found in the project's documentation [@advisor_doc].
 
 
 
 # Software description
-
 Advisor-Scattering is built on PyQt5 [@pyqt] for the graphical interface and 
 Matplotlib [@matplotlib] for visualization. The architecture separates 
 domain logic from user interface components, facilitating maintenance and 
 extension. \autoref{fig:overview} illustrates the application's main 
-interface. The documentation is available at readthedocs [@advisor_doc].
+functionalities. The documentation is available at readthedocs [@advisor_doc].
 
-![Overview of the Advisor-Scattering application showing the initialization 
-window (top) and the Scattering Geometry tab with interactive 3D visualization 
-(bottom).
-\label{fig:overview}](../docs/source/_static/showcase.gif){ width=95% }
+![Overview of the functionalities of ADVISOR \label{fig:overview}](functions.png)
 
+The package consists of two main modules. The first module *Scattering Geometry* enables the conversion between instrumental
+angles and momentum transfer in reciprocal space. The second module *Structure Factor*, with its
+core based on the Dans_Diffraction library [@dans_diffraction], enables the calculation of structure factors
+and visualization.
 
-## Initialization and CIF support
-
-Users begin by specifying lattice parameters (a, b, c, α, β, γ), beam energy, 
-and sample orientation via Euler angles (roll, pitch, yaw). Alternatively, 
-dropping a Crystallographic Information File (CIF) automatically extracts 
-lattice parameters and enables structure factor calculations. The 
-initialization window provides a live preview of the unit cell orientation 
-as Euler angles are adjusted, helping users verify the sample mounting 
-configuration before proceeding.
 
 
 ## Scattering Geometry module
 
 The Scattering Geometry tab implements the core angle-HKL transformation 
-mathematics following standard diffractometer conventions [@busing1967]. 
+mathematics.
 Four calculation modes are available:
 
 - **Angles → HKL**: Given instrumental angles (2θ, θ, χ, φ), compute the 
@@ -125,33 +143,26 @@ All calculations are accompanied by interactive 3D visualizations showing
 the incident and scattered wavevectors, momentum transfer vector, and crystal 
 orientation (\autoref{fig:geometry}).
 
-![The Scattering Geometry tab displaying angle-to-HKL conversion with 
-synchronized 3D scattering geometry and unit cell visualizations.
-\label{fig:geometry}](../docs/source/_static/scattering_geometry_tab_demo.gif){ width=95% }
-
+![Scattering Geometry module \label{fig:geometry}](scattering_geometry.jpg)
 
 ## Structure Factor module
 
-When a CIF file is provided, the Structure Factor tab enables exploration of 
-diffraction intensities across reciprocal space. The module leverages the 
+When a CIF file is provided, the Structure Factor module enables exploration of 
+diffraction intensities (approximated by structure factors) across reciprocal space. The module leverages the 
 Dans_Diffraction library [@dans_diffraction] for atomic form factor and 
-structure factor calculations, supporting energy-dependent X-ray scattering 
-cross-sections including anomalous dispersion corrections.
+structure factor calculations.
 
 Two visualization modes are provided:
 
 - **HKL planes**: A 3D reciprocal space cube with translucent slicing planes 
   (HK, HL, KL) that can be swept through integer L, K, or H values 
-  respectively. Synchronized 2D heatmaps show structure factor magnitudes 
+  respectively. Synchronized 2D map shows structure factor magnitudes 
   |F(hkl)| on each plane.
 - **Custom planes**: Users define arbitrary crystallographic planes by 
   specifying two in-plane vectors (U, V) and a center point in HKL 
-  coordinates, enabling visualization of structure factors along 
-  non-principal directions (\autoref{fig:structure}).
+  coordinates, enabling visualization of structure factors along any directions.
 
-![The Structure Factor tab showing a 3D reciprocal space cube with 
-adjustable slicing planes and corresponding 2D structure factor maps.
-\label{fig:structure}](../docs/source/_static/structure_factor_tab_demo.gif){ width=95% }
+![Structure Factor module \label{fig:structure}](structure_factor.jpg)
 
 
 ## Technical implementation
@@ -174,44 +185,50 @@ independently of the GUI for scripting and automation.
 
 
 # Mathematics
-
-The transformation between laboratory angles and reciprocal space coordinates 
-follows the formalism of Busing and Levy [@busing1967]. For a four-circle 
-diffractometer with angles 2θ (detector), θ (sample rotation), χ (tilt), 
-and φ (azimuth), the total rotation matrix is:
+For a four-circle 
+diffractometer with angles $2\theta$ (detector, `tth` in the software), $\theta$ (sample rotation), $\chi$ (tilt), 
+and $\phi$ (azimuth). We use the following rotation convention for this software:
 
 $$R_{\text{total}} = R_{\theta} R_{\chi} R_{\phi}$$
 
 The momentum transfer vector is:
 
-$$\mathbf{Q} = \mathbf{k}_f - \mathbf{k}_i = \frac{2\pi}{\lambda}\left(\hat{k}_f - \hat{k}_i\right)$$
+$$\mathbf{Q} = \mathbf{k}_f - \mathbf{k}_i$$
 
-where $|\mathbf{Q}| = \frac{4\pi}{\lambda}\sin\theta$. The HKL indices are 
-obtained by projecting onto the reciprocal lattice basis:
+The HKL momentum transfer components are defined as the vector components when expressed in the reciprocal lattice basis:
+
+$$ \mathbf{Q} = H \mathbf{a}^* + K \mathbf{b}^* + L \mathbf{c}^*$$
+
+where $\mathbf{a}^*$, 
+$\mathbf{b}^*$, 
+and $\mathbf{c}^*$ are the reciprocal lattice vectors. The HKL
+momentum can be directly calculated from the momentum transfer vector:
+
 
 $$H = \frac{\mathbf{Q} \cdot \mathbf{a}}{2\pi}, \quad 
 K = \frac{\mathbf{Q} \cdot \mathbf{b}}{2\pi}, \quad 
 L = \frac{\mathbf{Q} \cdot \mathbf{c}}{2\pi}$$
 
-where $\mathbf{a}^*$, $\mathbf{b}^*$, $\mathbf{c}^*$ are the reciprocal 
-lattice vectors computed from the real-space unit cell.
+where $\mathbf{a}$,
+$\mathbf{b}$,
+and $\mathbf{c}$ are the real-space
+lattice vectors.
 
 
 
 # Conclusions and future work
 
 Advisor-Scattering provides an accessible, visual approach to X-ray 
-scattering experiment planning. By combining real-time angle-HKL conversion 
+scattering experiment planning. By combining real-time angle-momentum transfer conversion 
 with interactive 3D visualization and structure factor exploration, the 
 software reduces the barrier to understanding reciprocal space geometry and 
-accelerates experimental preparation.
+accelerates experimental preparation and decision making.
 
 Planned developments include:
 
-- Support for additional diffractometer geometries (six-circle, kappa)
+- customizable rotation conventions for different beamline geometries
 - Export of calculated trajectories to beamline control formats
-- Integration of absorption correction calculations
-- Extension to neutron scattering cross-sections
+- Extension to neutron scattering.
 
 # AI usage disclosure
 
