@@ -62,8 +62,7 @@ quantitative determination of lattice parameters, symmetry, crystal structure,
 strain/microstructure, and phase fractions that underpin structure–property studies and
 phase-transition physics [@cullity1986; @bunaciu2015]. Beyond physics, X-ray diffraction also has broad applications in method in
 **chemistry** (structure determination and solid-state phase analysis) and in **geology/mineralogy**
-(mineral identification and quantitative phase analysis of complex mixtures) [@fitch2025;
-@ali2022minerals].
+(mineral identification and quantitative phase analysis of complex mixtures) [@bunaciu2015;].
 
 
 X-ray scattering and X-ray diffraction experiments are typically carried out at synchrotron

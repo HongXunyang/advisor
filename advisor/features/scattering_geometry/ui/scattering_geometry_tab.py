@@ -2,52 +2,30 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
 import matplotlib
-from PyQt5.QtWidgets import (
-    QWidget,
-    QGridLayout,
-    QFormLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QTabWidget,
-    QDoubleSpinBox,
-    QGroupBox,
-    QRadioButton,
-    QButtonGroup,
-    QFileDialog,
-    QMessageBox,
-    QComboBox,
-    QVBoxLayout,
-    QHBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QFrame,
-)
-from PyQt5.QtCore import Qt, pyqtSlot, QMimeData
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent, QFont, QColor, QBrush
+from PyQt5.QtCore import QMimeData, Qt, pyqtSlot
+from PyQt5.QtGui import QBrush, QColor, QDragEnterEvent, QDropEvent, QFont
+from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
+                             QFileDialog, QFormLayout, QFrame, QGridLayout,
+                             QGroupBox, QHBoxLayout, QHeaderView, QLabel,
+                             QLineEdit, QMessageBox, QPushButton, QRadioButton,
+                             QTableWidget, QTableWidgetItem, QTabWidget,
+                             QVBoxLayout, QWidget)
 
 # Tell matplotlib to render plots using the Qt5 framework with the Agg backend for drawing
 matplotlib.use("Qt5Agg")
 
 from advisor.features.scattering_geometry.domain import BrillouinCalculator
 from advisor.ui.tab_interface import TabInterface
-from advisor.ui.visualizers import (
-    ScatteringVisualizer,
-    UnitcellVisualizer,
-    HKLScan2DVisualizer,
-)
 from advisor.ui.tips import Tips, set_tip
-from .components import (
-    HKLScanControls,
-    HKLScanResultsTable,
-    HKAnglesControls,
-    HKAnglesResultsWidget,
-    AnglesToHKLControls,
-    AnglesToHKLResults,
-    HKLToAnglesControls,
-    HKLToAnglesResultsWidget,
-)
+from advisor.ui.visualizers import (HKLScan2DVisualizer, ScatteringVisualizer,
+                                    UnitcellVisualizer)
+
+from .components import (AnglesToHKLControls, AnglesToHKLResults,
+                         HKAnglesControls, HKAnglesResultsWidget,
+                         HKLScanControls, HKLScanResultsTable,
+                         HKLToAnglesControls, HKLToAnglesResultsWidget)
+
+
 class DragDropLineEdit(QLineEdit):
     """Custom QLineEdit that accepts drag and drop events."""
 
@@ -288,8 +266,8 @@ class ScatteringGeometryTab(TabInterface):
         right_layout.addWidget(self.angles_to_hkl_unitcell_viz)
 
         # Add columns to main layout
-        angles_layout.addWidget(left_column, 1)  # Left column takes 1 part
-        angles_layout.addWidget(right_column, 1.5)  # Right column takes 1.5 parts
+        angles_layout.addWidget(left_column, 2)  # Left column takes 1 part
+        angles_layout.addWidget(right_column, 3)  # Right column takes 1.5 parts
 
         # Add to tab widget
         self.tab_widget.addTab(angles_tab, "Angles → HKL")
