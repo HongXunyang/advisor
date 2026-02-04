@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from advisor.features.scattering_geometry.domain import BrillouinCalculator
-from tests.conftest import ALL_CRYSTAL_TYPES
+from tests.conftest import ALL_CRYSTAL_TYPES, BEAM_CONFIGS, LATTICE_CONFIGS
 
 
 class TestBrillouinCalculatorInitialization:
@@ -306,22 +306,32 @@ class TestCalculateHKL:
         assert isinstance(result["L"], float)
     
     # =========================================================================
-    # Known angle-HKL pairs (PLACEHOLDERS - fill in with verified values)
+    # Known angle-HKL pairs
     # =========================================================================
     # TODO: Fill in the expected H, K, L values for these known angle combinations
     #       These should be verified experimentally or calculated independently
     #       Note: Each crystal type may need its own set of verified pairs
-    
+    k_in = BEAM_CONFIGS["k_in"]
+    TETRAG_CONFIGS = LATTICE_CONFIGS["tetragonal"]
+    a_star, b_star, c_star = TETRAG_CONFIGS["a_star"], TETRAG_CONFIGS["b_star"], TETRAG_CONFIGS["c_star"]
     @pytest.mark.parametrize("angles,expected_hkl", [
         # Format: (tth, theta, phi, chi), (H, K, L)
-        # Example placeholder for TETRAGONAL - replace with actual verified values:
-        ((120.0, 60.0, 0.0, 0.0), (0.0, 0.0, -0.5)),  # TODO: verify
-        ((150.0, 75.0, 0.0, 0.0), (0.0, 0.0, -0.6)),  # TODO: verify
-        # Add more known pairs here...
+        # zero momentum transfer
+        ((0.0, 21.0, 34.0, 77.0), (0.0, 0.0, 0)),  
+        ((0.0, 76.0, 54.0, 12.0), (0.0, 0.0, 0)),  
+        # tth = 60, |momentum transfer| = |incoming beam's momentum|
+        ((60.0, -60.0, 0.0, 0.0), (0, - k_in / b_star,  0)),
+        ((60.0, -60.0, 0.0, 90), (0, - k_in / b_star, 0)),   
+        ((60.0, -60.0, 90, 0), (0, 0, k_in / c_star)),
+        ((60.0, -60.0, 90, 90), (0, 0, k_in / c_star)),
+        ((60.0, -60.0, 45, 0), (0,-k_in / b_star / np.sqrt(2), k_in / c_star / np.sqrt(2))),
+        ((60.0, 30.0, 0.0, 0.0), (- k_in / a_star, 0,  0)), 
+        ((60.0, 30.0, 90.0, 0.0), (- k_in / a_star, 0,  0)), 
+        ((60.0, 30.0, 0.0, 90.0), (0, 0, - k_in / c_star)), 
+        ((60.0, 30.0, 90.0, 90.0), (0, -k_in / b_star, 0)), 
     ])
     def test_known_angle_hkl_pairs_tetragonal(self, make_calculator, angles, expected_hkl):
         """Test known angle-HKL pairs for TETRAGONAL crystal."""
-        """
         calc = make_calculator("tetragonal")
         tth, theta, phi, chi = angles
         expected_H, expected_K, expected_L = expected_hkl
@@ -335,7 +345,39 @@ class TestCalculateHKL:
             f"K mismatch: got {result['K']}, expected {expected_K}"
         assert result["L"] == pytest.approx(expected_L, abs=0.01), \
             f"L mismatch: got {result['L']}, expected {expected_L}"
-        """
-    # TODO: Add similar test_known_angle_hkl_pairs_cubic, _hexagonal, etc.
-    # when you have verified angle-HKL pairs for those crystal types
-    
+
+    k_in = BEAM_CONFIGS["k_in"]
+    TETRAG_CONFIGS = LATTICE_CONFIGS["orthorhombic"]
+    a_star, b_star, c_star = TETRAG_CONFIGS["a_star"], TETRAG_CONFIGS["b_star"], TETRAG_CONFIGS["c_star"]
+    @pytest.mark.parametrize("angles,expected_hkl", [
+        # Format: (tth, theta, phi, chi), (H, K, L)
+        # zero momentum transfer
+        ((0.0, 21.0, 34.0, 77.0), (0.0, 0.0, 0)),  
+        ((0.0, 76.0, 54.0, 12.0), (0.0, 0.0, 0)),  
+        # tth = 60, |momentum transfer| = |incoming beam's momentum|
+        ((60.0, -60.0, 0.0, 0.0), (0, - k_in / b_star,  0)),
+        ((60.0, -60.0, 0.0, 90), (0, - k_in / b_star, 0)),   
+        ((60.0, -60.0, 90, 0), (0, 0, k_in / c_star)),
+        ((60.0, -60.0, 90, 90), (0, 0, k_in / c_star)),
+        ((60.0, -60.0, 45, 0), (0,-k_in / b_star / np.sqrt(2), k_in / c_star / np.sqrt(2))),
+        ((60.0, 30.0, 0.0, 0.0), (- k_in / a_star, 0,  0)), 
+        ((60.0, 30.0, 90.0, 0.0), (- k_in / a_star, 0,  0)), 
+        ((60.0, 30.0, 0.0, 90.0), (0, 0, - k_in / c_star)), 
+        ((60.0, 30.0, 90.0, 90.0), (0, -k_in / b_star, 0)), 
+    ])
+    def test_known_angle_hkl_pairs_orthorhombic(self, make_calculator, angles, expected_hkl):
+        """Test known angle-HKL pairs for orthorhombic crystal."""
+        calc = make_calculator("orthorhombic")
+        tth, theta, phi, chi = angles
+        expected_H, expected_K, expected_L = expected_hkl
+        
+        result = calc.calculate_hkl(tth=tth, theta=theta, phi=phi, chi=chi)
+        
+        assert result["success"]
+        assert result["H"] == pytest.approx(expected_H, abs=0.01), \
+            f"H mismatch: got {result['H']}, expected {expected_H}"
+        assert result["K"] == pytest.approx(expected_K, abs=0.01), \
+            f"K mismatch: got {result['K']}, expected {expected_K}"
+        assert result["L"] == pytest.approx(expected_L, abs=0.01), \
+            f"L mismatch: got {result['L']}, expected {expected_L}"
+

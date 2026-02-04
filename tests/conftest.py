@@ -1,23 +1,30 @@
 """Shared fixtures for all tests."""
-import pytest
 import numpy as np
-
+import pytest
 
 # =============================================================================
 # Lattice Configuration Registry
 # =============================================================================
+BEAM_CONFIGS = {
+    "energy": 930.0,
+    "k_in": 2 * np.pi /  12398.42 * 930,
+    "lambda_A": 12398.42 / 930.0,
+}
 LATTICE_CONFIGS = {
     "cubic": {
         "a": 4.0, "b": 4.0, "c": 4.0,
         "alpha": 90.0, "beta": 90.0, "gamma": 90.0,
+        "a_star": 2*np.pi/4.0, "b_star": 2*np.pi/4.0, "c_star": 2*np.pi/4.0,
     },
     "tetragonal": {
         "a": 4.0, "b": 4.0, "c": 12.0,
         "alpha": 90.0, "beta": 90.0, "gamma": 90.0,
+        "a_star": 2*np.pi/4.0, "b_star": 2*np.pi/4.0, "c_star": 2*np.pi/12.0,
     },
     "orthorhombic": {
         "a": 3.0, "b": 4.0, "c": 5.0,
         "alpha": 90.0, "beta": 90.0, "gamma": 90.0,
+        "a_star": 2*np.pi/3.0, "b_star": 2*np.pi/4.0, "c_star": 2*np.pi/5.0,
     },
     "hexagonal": {
         "a": 4.0, "b": 4.0, "c": 6.0,
@@ -88,11 +95,12 @@ def no_rotation_euler():
         "yaw": 0.0,
     }
 
+ev_to_lambda = 12398.42
 
 @pytest.fixture
 def standard_energy():
     """Standard X-ray energy in eV."""
-    return 930.0  # eV
+    return BEAM_CONFIGS["energy"]  # eV
 
 
 # =============================================================================
