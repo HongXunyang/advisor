@@ -5,11 +5,9 @@ from scipy.optimize import fsolve
 
 from advisor.domain import angle_to_matrix
 from advisor.domain.core import Lab
-from .core import (
-    _calculate_angles_factory,
-    _calculate_angles_tth_fixed,
-    _calculate_hkl,
-)
+
+from .core import (_calculate_angles_factory, _calculate_angles_tth_fixed,
+                   _calculate_hkl)
 
 
 def is_feasible(theta, tth):
@@ -34,6 +32,7 @@ class BrillouinCalculator:
         self.hPlanck = 6.62607015e-34  # Planck's constant [J·s]
         self.c_light = 299792458  # Speed of light [m/s]
         self.e = 1.602176634e-19  # Elementary charge [C]
+        self.ev_to_lambda = 12398.42 # eV to Angstrom
 
         # Initialize sample
         self.lab = Lab()
@@ -97,9 +96,7 @@ class BrillouinCalculator:
                 chi,
             )
             # Calculate wavelength and wavevector
-            self.lambda_A = (
-                (self.hPlanck * self.c_light) / (self.energy * self.e) * 1e10
-            )
+            self.lambda_A = self.ev_to_lambda / self.energy
             self.k_in = 2 * np.pi / self.lambda_A
 
             self._initialized = True
