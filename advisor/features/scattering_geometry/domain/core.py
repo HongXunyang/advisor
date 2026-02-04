@@ -155,10 +155,8 @@ def _calculate_angles_tth_fixed(
 
     1. Use fsolve to find the missing momentum transfer component (H, K, or L). IT IS POSSIBLE THAT
        THERE ARE MULTIPLE SOLUTIONS, BUT HERE WE ONLY RETURN THE ONE CLOSE TO THE NEGATIVE VALUE.
-    2. Use optimization algorithm to find the theta and phi/chi angles that satisfy the condition
+    2. Use root-finding to find up to two theta and phi/chi angles that satisfy the condition
        for the given HKL indices while keeping one angle fixed.
-
-    There could be more than one solution, so the function returns a list of solutions.
 
     Args:
         k_in (float): Incident wave vector magnitude, in 2π/Å
@@ -173,12 +171,13 @@ def _calculate_angles_tth_fixed(
         fixed_angle (float, optional): Value of the fixed angle in degrees. Defaults to 0.0.
 
     Returns:
-        tuple: Five values containing the calculated results:
-            - tth_result (float/list): Scattering angle value(s) in degrees
-            - theta_result (float/list): Sample theta rotation value(s) in degrees
-            - phi_result (float/list): Sample phi rotation value(s) in degrees
-            - chi_result (float/list): Sample chi rotation value(s) in degrees
+        dict: Dictionary containing:
+            - tth (list): Scattering angle values in degrees
+            - theta (list): Sample theta rotation values in degrees
+            - phi (list): Sample phi rotation values in degrees
+            - chi (list): Sample chi rotation values in degrees
             - momentum (float): Solved momentum transfer component (H, K, or L depending on which was None)
+            - number_of_solutions (int): Number of distinct solutions found
     """
     # initial k_vec_lab when sample has not rotated
     k_magnitude_target = calculate_k_magnitude(k_in, tth)
@@ -215,7 +214,7 @@ def _calculate_angles_tth_fixed(
 
     calculate_angles = _calculate_angles_factory(fixed_angle_name)
 
-    tth_result, theta_result, phi_result, chi_result = calculate_angles(
+    result = calculate_angles(
         k_in,
         H,
         K,
@@ -231,7 +230,11 @@ def _calculate_angles_tth_fixed(
         yaw,
         fixed_angle,
     )
-    return tth_result, theta_result, phi_result, chi_result, momentum[0]
+    
+    # Add momentum to the result
+    result["momentum"] = momentum[0]
+    
+    return result
 
 
 def _calculate_angles_chi_fixed(
@@ -249,15 +252,13 @@ def _calculate_angles_chi_fixed(
     pitch,
     yaw,
     chi_fixed,
-    target_objective=1e-7,
-    num_steps=3000,
-    learning_rate=100,
+    target_objective=1e-10,
+    max_restarts=20,
 ):
     """Calculate scattering angles with chi angle (in degrees) fixed.
 
-    Uses optimization algorithm to find the theta and phi angles that satisfy the condition
-    for the given HKL indices while keeping chi fixed at the specified value. There could be more
-    than one solution, so the function returns a list of solutions.
+    Uses root-finding (fsolve) to find up to two theta and phi angle solutions that satisfy
+    the condition for the given HKL indices while keeping chi fixed at the specified value.
 
     Args:
         k_in (float): Incident wave vector magnitude, in 2π/Å
@@ -266,79 +267,105 @@ def _calculate_angles_chi_fixed(
         alpha, beta, gamma (float): sample rotation angles in degrees
         roll, pitch, yaw (float): Lattice rotation Euler angles in degrees. We use ZYX convention.
         chi_fixed (float): Fixed chi angle in degrees
-        target_objective (float, optional): Convergence criterion for optimization. Defaults to 1e-5.
-        num_steps (int, optional): Maximum number of optimization steps. Defaults to 1000.
-        learning_rate (float, optional): Learning rate for the gradient descent. Defaults to 100.
+        target_objective (float, optional): Convergence tolerance for fsolve. Defaults to 1e-10.
+        max_restarts (int, optional): Maximum number of random restarts. Defaults to 20.
 
     Returns:
-        tuple: Four lists containing the calculated values:
-            - tth_result (list): Scattering angle values in degrees
-            - theta_result (list): Sample theta rotation values in degrees
-            - phi_result (list): Sample phi rotation values in degrees
-            - chi_result (list): Fixed chi values in degrees (all equal to chi_fixed)
+        dict: Dictionary containing:
+            - tth (list): Scattering angle values in degrees
+            - theta (list): Sample theta rotation values in degrees
+            - phi (list): Sample phi rotation values in degrees
+            - chi (list): Fixed chi values in degrees
+            - number_of_solutions (int): Number of distinct solutions found (1 or 2)
     """
+    # Initialize lab ONCE - reuse for all iterations
+    lab = Lab()
+    lab.initialize(a, b, c, alpha, beta, gamma, roll, pitch, yaw, 0, 0, chi_fixed)
 
-    def objective_function(k_cal, k_target):
-        """objective function for gradient decent"""
-        return np.linalg.norm(k_cal - k_target)/np.linalg.norm(k_target)
+    # Compute k_target (constant throughout optimization)
+    lab.rotate(45, 1, chi_fixed)
+    a_star, b_star, c_star = lab.get_reciprocal_space_vectors()
+    k_initial = H * a_star + K * b_star + L * c_star
+    k_magnitude = np.linalg.norm(k_initial)
+    tth = calculate_tth_from_k_magnitude(k_in, k_magnitude)
+    k_target = calculate_k_vector_in_lab(k_in, tth)
 
-    def get_k_cal(lab, theta_, phi_, chi_):
-        lab.rotate(theta_, phi_, chi_)
+    def equations(angles):
+        """Return residuals: k_cal - k_target (2 components, 2 unknowns)."""
+        theta, phi = angles
+        lab.rotate(theta, phi, chi_fixed)
         a_star_vec, b_star_vec, c_star_vec = lab.get_reciprocal_space_vectors()
         k_cal = H * a_star_vec + K * b_star_vec + L * c_star_vec
-        return k_cal
+        # 2 equations for 2 unknowns (3rd is redundant due to |k_cal|=|k_target|)
+        return [k_cal[0] - k_target[0], k_cal[1] - k_target[1]]
 
     def is_valid_solution(phi):
         if phi is None:
             return False
-        if (phi > 90) or (phi < -90):
-            return False
+        return -90 <= phi <= 90
+
+    def is_distinct_solution(theta_new, phi_new, existing_solutions, tolerance=1.0):
+        """Check if a solution is distinct from existing ones (differs by more than tolerance degrees)."""
+        for theta_exist, phi_exist in existing_solutions:
+            if abs(theta_new - theta_exist) < tolerance and abs(phi_new - phi_exist) < tolerance:
+                return False
         return True
 
-    theta_best = None
-    phi_best = None
-    _is_valid_solution = False
+    solutions = []  # List of (theta, phi) tuples
 
-    while not _is_valid_solution:
-        lab = Lab()
-        theta = np.random.uniform(0, 180)
-        phi = np.random.uniform(-90, 90)
+    # Try different starting points to find up to 2 distinct solutions
+    for _ in range(max_restarts):
+        theta0 = np.random.uniform(0, 180)
+        phi0 = np.random.uniform(-90, 90)
 
-        lab.initialize(
-            a, b, c, alpha, beta, gamma, roll, pitch, yaw, theta, phi, chi_fixed
+        solution, info, ier, msg = fsolve(
+            equations,
+            x0=[theta0, phi0],
+            full_output=True,
+            xtol=target_objective,
         )
 
-        k_cal = get_k_cal(lab, theta, phi, chi_fixed)
-        k_magnitude = np.linalg.norm(k_cal)
-        tth = calculate_tth_from_k_magnitude(k_in, k_magnitude)
-        k_target = calculate_k_vector_in_lab(k_in, tth)
-        objective = objective_function(k_cal, k_target)
-        for i in range(num_steps):
-            step_size = objective * learning_rate
-            theta_new = theta + np.random.uniform(-step_size, step_size)
-            phi_new = phi + np.random.uniform(-step_size, step_size)
-            k_cal = get_k_cal(lab, theta_new, phi_new, chi_fixed)
-            objective_new = objective_function(k_cal, k_target)
-            if objective_new < objective:
-                theta = theta_new
-                phi = phi_new
-                objective = objective_new
-            if objective < target_objective:
-                break
-        # Normalize angles to (-180, 180] range
+        theta, phi = solution
         theta = process_angle(theta)
         phi = process_angle(phi)
 
-        theta_best = theta
-        phi_best = phi
-        _is_valid_solution = is_valid_solution(phi_best)
+        # Check if fsolve converged (ier=1) and solution is valid
+        if ier == 1 and is_valid_solution(phi):
+            # Verify solution quality
+            residual = np.linalg.norm(equations([theta, phi]))
+            if residual < 1e-6:
+                # Check if this is a distinct solution
+                if is_distinct_solution(theta, phi, solutions):
+                    solutions.append((theta, phi))
+                    # Stop if we found 2 solutions
+                    if len(solutions) >= 2:
+                        break
 
-    theta_result = np.round(theta_best, 1)
-    phi_result = np.round(phi_best, 1)
-    tth_result = np.round(process_angle(tth), 1)
-    chi_result = np.round(chi_fixed, 1)
+    # Build result lists
+    tth_result = process_angle(tth)
+    
+    if len(solutions) == 0:
+        # No valid solution found - return last attempted values
+        return {
+            "tth": [tth_result],
+            "theta": [theta],
+            "phi": [phi],
+            "chi": [chi_fixed],
+            "number_of_solutions": 0,
+        }
+    
+    theta_list = [sol[0] for sol in solutions]
+    phi_list = [sol[1] for sol in solutions]
+    tth_list = [tth_result] * len(solutions)
+    chi_list = [chi_fixed] * len(solutions)
 
-    return tth_result, theta_result, phi_result, chi_result
+    return {
+        "tth": tth_list,
+        "theta": theta_list,
+        "phi": phi_list,
+        "chi": chi_list,
+        "number_of_solutions": len(solutions),
+    }
 
 
 def _calculate_angles_phi_fixed(
@@ -356,15 +383,13 @@ def _calculate_angles_phi_fixed(
     pitch,
     yaw,
     phi_fixed,
-    target_objective=1e-7,
-    num_steps=3000,
-    learning_rate=100,
+    target_objective=1e-10,
+    max_restarts=20,
 ):
     """Calculate scattering angles with phi angle fixed.
 
-    Uses optimization algorithm to find the theta and chi angles that satisfy the condition
-    for the given HKL indices while keeping phi fixed at the specified value. There could be more
-    than one solution, so the function returns a list of solutions.
+    Uses root-finding (fsolve) to find up to two theta and chi angle solutions that satisfy
+    the condition for the given HKL indices while keeping phi fixed at the specified value.
 
     Args:
         k_in (float): Incident wave vector magnitude, in 2π/Å
@@ -373,77 +398,105 @@ def _calculate_angles_phi_fixed(
         alpha, beta, gamma (float): sample rotation angles in degrees
         roll, pitch, yaw (float): Lattice rotation Euler angles in degrees. We use ZYX convention.
         phi_fixed (float): Fixed phi angle in degrees
-        target_objective (float, optional): Convergence criterion for optimization. Defaults to 1e-5.
-        num_steps (int, optional): Maximum number of optimization steps. Defaults to 1000.
-        learning_rate (float, optional): Learning rate for the gradient descent. Defaults to 100.
+        target_objective (float, optional): Convergence tolerance for fsolve. Defaults to 1e-10.
+        max_restarts (int, optional): Maximum number of random restarts. Defaults to 20.
 
     Returns:
-        tuple: Four lists containing the calculated values:
-            - tth_result (list): Scattering angle values in degrees
-            - theta_result (list): Sample theta rotation values in degrees
-            - phi_result (list): Fixed phi values in degrees (all equal to phi_fixed)
-            - chi_result (list): Sample chi rotation values in degrees
+        dict: Dictionary containing:
+            - tth (list): Scattering angle values in degrees
+            - theta (list): Sample theta rotation values in degrees
+            - phi (list): Fixed phi values in degrees
+            - chi (list): Sample chi rotation values in degrees
+            - number_of_solutions (int): Number of distinct solutions found (1 or 2)
     """
+    # Initialize lab ONCE - reuse for all iterations
+    lab = Lab()
+    lab.initialize(a, b, c, alpha, beta, gamma, roll, pitch, yaw, 0, phi_fixed, 0)
 
-    def objective_function(k_cal, k_target):
-        """objective function for gradient decent"""
-        return np.linalg.norm(k_cal - k_target)
+    # Compute k_target (constant throughout optimization)
+    lab.rotate(45, phi_fixed, 1)
+    a_star, b_star, c_star = lab.get_reciprocal_space_vectors()
+    k_initial = H * a_star + K * b_star + L * c_star
+    k_magnitude = np.linalg.norm(k_initial)
+    tth = calculate_tth_from_k_magnitude(k_in, k_magnitude)
+    k_target = calculate_k_vector_in_lab(k_in, tth)
 
-    def get_k_cal(lab, theta_, phi_, chi_):
-        lab.rotate(theta_, phi_, chi_)
+    def equations(angles):
+        """Return residuals: k_cal - k_target (2 components, 2 unknowns)."""
+        theta, chi = angles
+        lab.rotate(theta, phi_fixed, chi)
         a_star_vec, b_star_vec, c_star_vec = lab.get_reciprocal_space_vectors()
         k_cal = H * a_star_vec + K * b_star_vec + L * c_star_vec
-        return k_cal
-    
+        # 2 equations for 2 unknowns (3rd is redundant due to |k_cal|=|k_target|)
+        return [k_cal[0] - k_target[0], k_cal[1] - k_target[1]]
+
     def is_valid_solution(chi):
         if chi is None:
             return False
-        if (chi > 90) or (chi < -90):
-            return False
-        return True
-    
-    theta_best = None
-    chi_best = None
-    _is_valid_solution = False
-    while not _is_valid_solution:
-        lab = Lab()
-        theta = np.random.uniform(0, 180)
-        chi = np.random.uniform(-90, 90)
+        return -90 <= chi <= 90
 
-        lab.initialize(
-            a, b, c, alpha, beta, gamma, roll, pitch, yaw, theta, phi_fixed, chi
+    def is_distinct_solution(theta_new, chi_new, existing_solutions, tolerance=1.0):
+        """Check if a solution is distinct from existing ones (differs by more than tolerance degrees)."""
+        for theta_exist, chi_exist in existing_solutions:
+            if abs(theta_new - theta_exist) < tolerance and abs(chi_new - chi_exist) < tolerance:
+                return False
+        return True
+
+    solutions = []  # List of (theta, chi) tuples
+
+    # Try different starting points to find up to 2 distinct solutions
+    for _ in range(max_restarts):
+        theta0 = np.random.uniform(0, 180)
+        chi0 = np.random.uniform(-90, 90)
+
+        solution, info, ier, msg = fsolve(
+            equations,
+            x0=[theta0, chi0],
+            full_output=True,
+            xtol=target_objective,
         )
 
-        k_cal = get_k_cal(lab, theta, phi_fixed, chi)
-        k_magnitude = np.linalg.norm(k_cal)
-        tth = calculate_tth_from_k_magnitude(k_in, k_magnitude)
-        k_target = calculate_k_vector_in_lab(k_in, tth)
-        objective = objective_function(k_cal, k_target)
-        for i in range(num_steps):
-            step_size = objective * learning_rate
-            theta_new = theta + np.random.uniform(-step_size, step_size)
-            chi_new = chi + np.random.uniform(-step_size, step_size)
-            k_cal = get_k_cal(lab, theta_new, phi_fixed, chi_new)
-            objective_new = objective_function(k_cal, k_target)
-            if objective_new < objective:
-                theta = theta_new
-                chi = chi_new
-                objective = objective_new
-            if objective < target_objective:
-                break
-        # Normalize angles to (0, 360) range
+        theta, chi = solution
         theta = process_angle(theta)
         chi = process_angle(chi)
-        theta_best = theta
-        chi_best = chi
-        _is_valid_solution = is_valid_solution(chi_best)
 
-    # round up to 0.1, discard duplicates, theta and chi should match the order of the list
-    theta_result = np.round(theta_best, 1)
-    chi_result = np.round(chi_best, 1)
-    tth_result = np.round(process_angle(tth), 1)
-    phi_result = np.round(phi_fixed, 1)
-    return tth_result, theta_result, phi_result, chi_result
+        # Check if fsolve converged (ier=1) and solution is valid
+        if ier == 1 and is_valid_solution(chi):
+            # Verify solution quality
+            residual = np.linalg.norm(equations([theta, chi]))
+            if residual < 1e-6:
+                # Check if this is a distinct solution
+                if is_distinct_solution(theta, chi, solutions):
+                    solutions.append((theta, chi))
+                    # Stop if we found 2 solutions
+                    if len(solutions) >= 2:
+                        break
+
+    # Build result lists
+    tth_result = process_angle(tth)
+    
+    if len(solutions) == 0:
+        # No valid solution found - return last attempted values
+        return {
+            "tth": [tth_result],
+            "theta": [theta],
+            "phi": [phi_fixed],
+            "chi": [chi],
+            "number_of_solutions": 0,
+        }
+    
+    theta_list = [sol[0] for sol in solutions]
+    chi_list = [sol[1] for sol in solutions]
+    tth_list = [tth_result] * len(solutions)
+    phi_list = [phi_fixed] * len(solutions)
+
+    return {
+        "tth": tth_list,
+        "theta": theta_list,
+        "phi": phi_list,
+        "chi": chi_list,
+        "number_of_solutions": len(solutions),
+    }
 
 
 def _calculate_hkl(k_in, tth, theta, phi, chi, a_vec_lab, b_vec_lab, c_vec_lab):

@@ -369,6 +369,17 @@ class ScatteringGeometryTab(TabInterface):
         self.hkl_scan_results_table = HKLScanResultsTable(parent=self)
         results_layout.addWidget(self.hkl_scan_results_table, 1)
         
+        # Reminder notes below results table
+        notes_layout = QVBoxLayout()
+        notes_layout.setSpacing(2)
+        note1 = QLabel("Note: Each HKL point may have up to two solutions.")
+        note1.setStyleSheet("color: gray; font-size: 11px; font-style: italic;")
+        note2 = QLabel("Some HKL points may be unreachable due to the momentum transfer limit at current energy.")
+        note2.setStyleSheet("color: gray; font-size: 11px; font-style: italic;")
+        notes_layout.addWidget(note1)
+        notes_layout.addWidget(note2)
+        results_layout.addLayout(notes_layout)
+        
         # 2D visualizer section
         self.hkl_scan_visualizer = HKLScan2DVisualizer(parent=self)
         results_layout.addWidget(self.hkl_scan_visualizer, 1)
@@ -545,16 +556,27 @@ class ScatteringGeometryTab(TabInterface):
             )
             return
         self.hkl_to_angles_results.display_results(result)
+        
         # Update visualization with the first solution
+        # Extract first solution for visualization
+        first_solution = {
+            "tth": result["tth"][0],
+            "theta": result["theta"][0],
+            "phi": result["phi"][0],
+            "chi": result["chi"][0],
+            "H": result["H"],
+            "K": result["K"],
+            "L": result["L"],
+        }
         self.hkl_to_angles_visualizer.visualize_lab_system(
-            is_clear=True, chi=result["chi"], phi=result["phi"], plot_basis=False, plot_k_basis=True
+            is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True
         )
         self.hkl_to_angles_visualizer.visualize_scattering_geometry(
-            scattering_angles=result, is_clear=False
+            scattering_angles=first_solution, is_clear=False
         )
         self.hkl_to_angles_unitcell_viz.visualize_unitcell()
         self.hkl_to_angles_unitcell_viz.visualize_scattering_geometry(
-            scattering_angles=result
+            scattering_angles=first_solution
         ) 
     @pyqtSlot()
     def calculate_angles_tth_fixed(self):
@@ -588,7 +610,6 @@ class ScatteringGeometryTab(TabInterface):
             fixed_angle_name=fixed_angle_name,
             fixed_angle=fixed_angle_value,
         )
-        print("result", result)
         if not result["success"]:
             QMessageBox.warning(
                 self, "Warning", result.get("error", "No solution found")
@@ -597,15 +618,25 @@ class ScatteringGeometryTab(TabInterface):
         self.hk_angles_results.display_results(result)
 
         # Update visualization with the first solution
+        # Extract first solution for visualization
+        first_solution = {
+            "tth": result["tth"][0],
+            "theta": result["theta"][0],
+            "phi": result["phi"][0],
+            "chi": result["chi"][0],
+            "H": result["H"],
+            "K": result["K"],
+            "L": result["L"],
+        }
         self.hk_fixed_tth_visualizer.visualize_lab_system(
-            is_clear=True, chi=result["chi"], phi=result["phi"], plot_basis=False, plot_k_basis=True
+            is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True
         )
         self.hk_fixed_tth_visualizer.visualize_scattering_geometry(
-            scattering_angles=result, is_clear=False
+            scattering_angles=first_solution, is_clear=False
         )
         self.hk_fixed_tth_unitcell_viz.visualize_unitcell()
         self.hk_fixed_tth_unitcell_viz.visualize_scattering_geometry(
-            scattering_angles=result
+            scattering_angles=first_solution
         ) 
     @pyqtSlot()
     def on_angle_solution_selected(self, solution):

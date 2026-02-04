@@ -142,24 +142,34 @@ class BrillouinCalculator:
     ):
         """Calculate scattering angles from HKL indices.
 
-        CURRENTLY THE CHI IS FIXED TO 0, TO BE EXTENDED
+        Returns up to two solutions if they exist.
 
         Args:
-            h, k, l (float): HKL indices
+            H, K, L (float): HKL indices
+            fixed_angle (float): Value of the fixed angle in degrees
+            fixed_angle_name (str): Name of the fixed angle ('chi' or 'phi')
 
         Returns:
-            dict: Dictionary containing scattering angles and minimum energy
+            dict: Dictionary containing:
+                - tth (list): Scattering angles in degrees
+                - theta (list): Sample theta rotation values in degrees
+                - phi (list): Sample phi rotation values in degrees
+                - chi (list): Sample chi rotation values in degrees
+                - H, K, L (float): Input HKL indices
+                - number_of_solutions (int): Number of distinct solutions found
+                - feasible (list): Boolean list indicating if each solution is feasible
+                - success (bool): Whether calculation succeeded
+                - error (str or None): Error message if any
         """
 
         if not self.is_initialized():
             raise ValueError("Calculator not initialized")
 
-        
         calculate_angles = _calculate_angles_factory(fixed_angle_name)
         a, b, c, alpha, beta, gamma = self.lab.get_lattice_parameters()
         roll, pitch, yaw = self.lab.get_lattice_angles()
         try:
-            tth_result, theta_result, phi_result, chi_result = calculate_angles(
+            result = calculate_angles(
                 self.k_in,
                 H,
                 K,
@@ -178,19 +188,31 @@ class BrillouinCalculator:
         except Exception as e:
             return {
                 "success": False,
-                "error": "No solution found; The Q point is possible not reachable at this energy and/or scattering angle tth. System message:" + str(e),
+                "error": "No solution found; The Q point is possibly not reachable at this energy and/or scattering angle tth. System message:" + str(e),
             }
+        
+        # Extract lists from result
+        tth_list = result["tth"]
+        theta_list = result["theta"]
+        phi_list = result["phi"]
+        chi_list = result["chi"]
+        num_solutions = result["number_of_solutions"]
+        
+        # Calculate feasibility for each solution
+        feasible_list = [is_feasible(theta_list[i], tth_list[i]) for i in range(len(theta_list))]
+        
         return {
-            "tth": tth_result,
-            "theta": theta_result,
-            "phi": phi_result,
-            "chi": chi_result,
+            "tth": tth_list,
+            "theta": theta_list,
+            "phi": phi_list,
+            "chi": chi_list,
             "H": H,
             "K": K,
             "L": L,
+            "number_of_solutions": num_solutions,
             "success": True,
             "error": None,
-            "feasible": is_feasible(theta_result, tth_result),
+            "feasible": feasible_list,
         }
 
     def calculate_angles_tth_fixed(
@@ -202,52 +224,77 @@ class BrillouinCalculator:
         fixed_angle_name="chi",
         fixed_angle=0.0,
     ):
+        """Calculate scattering angles with fixed tth.
+
+        Returns up to two solutions if they exist.
+
+        Args:
+            tth (float): Fixed scattering angle in degrees
+            H, K, L (float): HKL indices (one should be None to be solved)
+            fixed_angle_name (str): Name of the fixed angle ('chi' or 'phi')
+            fixed_angle (float): Value of the fixed angle in degrees
+
+        Returns:
+            dict: Dictionary containing lists of solutions and metadata
+        """
         a, b, c, alpha, beta, gamma = self.lab.get_lattice_parameters()
         roll, pitch, yaw = self.lab.get_lattice_angles()
 
         try:
-            tth_result, theta_result, phi_result, chi_result, momentum = (
-                _calculate_angles_tth_fixed(
-                    self.k_in,
-                    tth,
-                    a,
-                    b,
-                    c,
-                    alpha,
-                    beta,
-                    gamma,
-                    roll,
-                    pitch,
-                    yaw,
-                    H,
-                    K,
-                    L,
-                    fixed_angle_name,
-                    fixed_angle,
-                )
+            result = _calculate_angles_tth_fixed(
+                self.k_in,
+                tth,
+                a,
+                b,
+                c,
+                alpha,
+                beta,
+                gamma,
+                roll,
+                pitch,
+                yaw,
+                H,
+                K,
+                L,
+                fixed_angle_name,
+                fixed_angle,
             )
-            H = momentum if H is None else H
-            K = momentum if K is None else K
-            L = momentum if L is None else L
+            
+            # Extract data from result
+            tth_list = result["tth"]
+            theta_list = result["theta"]
+            phi_list = result["phi"]
+            chi_list = result["chi"]
+            momentum = result["momentum"]
+            num_solutions = result["number_of_solutions"]
+            
+            # Update the solved HKL component
+            H_result = momentum if H is None else H
+            K_result = momentum if K is None else K
+            L_result = momentum if L is None else L
+            
         except Exception as e:
             return {
                 "success": False,
-                "error": "No solution found; The Q point is possible not reachable at this energy and/or scattering angle tth. System message:" + str(e),
+                "error": "No solution found; The Q point is possibly not reachable at this energy and/or scattering angle tth. System message:" + str(e),
             }
 
-        result = {
-            "tth": tth_result,
-            "theta": theta_result,
-            "phi": phi_result,
-            "chi": chi_result,
-            "H": H,
-            "K": K,
-            "L": L,
+        # Calculate feasibility for each solution
+        feasible_list = [is_feasible(theta_list[i], tth_list[i]) for i in range(len(theta_list))]
+
+        return {
+            "tth": tth_list,
+            "theta": theta_list,
+            "phi": phi_list,
+            "chi": chi_list,
+            "H": H_result,
+            "K": K_result,
+            "L": L_result,
+            "number_of_solutions": num_solutions,
             "success": True,
             "error": None,
-            "feasible": is_feasible(theta_result, tth_result),
+            "feasible": feasible_list,
         }
-        return result
 
     def calculate_angles_tth_fixed_scan(
         self,
@@ -260,6 +307,9 @@ class BrillouinCalculator:
         fixed_angle=0.0,
     ):
         """Calculate scattering angles for a range of HKL values with fixed tth.
+
+        Each HKL point may have up to 2 solutions. Results are flattened into lists
+        with solution_group indicating which original HKL point each solution belongs to.
 
         Args:
             tth (float): Fixed scattering angle in degrees
@@ -312,7 +362,7 @@ class BrillouinCalculator:
             else [None] * num_points
         )
 
-        # Initialize result lists
+        # Initialize result lists - flattened to include all solutions
         all_tth = []
         all_theta = []
         all_phi = []
@@ -320,6 +370,9 @@ class BrillouinCalculator:
         all_h = []
         all_k = []
         all_l = []
+        all_feasible = []
+        all_solution_group = []  # Track which HKL point each solution belongs to
+        all_solution_index = []  # Track if it's solution 1 or 2 within the group
 
         # Calculate for each point
         for i in range(num_points):
@@ -341,14 +394,20 @@ class BrillouinCalculator:
                     # Skip points that fail to calculate but don't fail completely
                     continue
                 
-                # Each calculation can return multiple solutions
-                all_tth.append(result["tth"])
-                all_theta.append(result["theta"])
-                all_phi.append(result["phi"])
-                all_chi.append(result["chi"])
-                all_h.append(result["H"])
-                all_k.append(result["K"])
-                all_l.append(result["L"])
+                # Each calculation returns lists of solutions
+                num_solutions = result.get("number_of_solutions", 1)
+                for sol_idx in range(num_solutions):
+                    all_tth.append(result["tth"][sol_idx])
+                    all_theta.append(result["theta"][sol_idx])
+                    all_phi.append(result["phi"][sol_idx])
+                    all_chi.append(result["chi"][sol_idx])
+                    all_h.append(result["H"])
+                    all_k.append(result["K"])
+                    all_l.append(result["L"])
+                    all_feasible.append(result["feasible"][sol_idx])
+                    all_solution_group.append(i)  # Which HKL point
+                    all_solution_index.append(sol_idx + 1)  # Solution 1 or 2
+                    
             except Exception as e:
                 # Log the error but continue with other points
                 print(f"Error calculating point {(h, k, l)}: {str(e)}")
@@ -368,10 +427,12 @@ class BrillouinCalculator:
             "H": all_h,
             "K": all_k,
             "L": all_l,
-            "deactivated_index": deactivated_index,  # Store which index was deactivated
+            "deactivated_index": deactivated_index,
+            "solution_group": all_solution_group,
+            "solution_index": all_solution_index,
             "success": True,
             "error": None,
-            "feasible": is_feasible(all_theta, all_tth),
+            "feasible": all_feasible,
         }
 
     def is_initialized(self):

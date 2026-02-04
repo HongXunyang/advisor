@@ -15,9 +15,12 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QButtonGroup,
     QMessageBox,
+    QDialog,
+    QScrollArea,
+    QFrame,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QBrush
+from PyQt5.QtGui import QColor, QBrush, QFont
 
 
 class HKAnglesControls(QWidget):
@@ -323,83 +326,102 @@ class HKAnglesControls(QWidget):
         }
 
 
-class HKAnglesResultsTable(QTableWidget):
-    """Table to display HK to Angles calculation results."""
+class HKAnglesHistoryDialog(QDialog):
+    """Dialog to display history of all HK angles calculation results."""
 
-    # Signal emitted when a solution is selected
-    solutionSelected = pyqtSignal(dict)
-
-    def __init__(self, parent=None):
+    def __init__(self, history, parent=None):
         super().__init__(parent)
-
-        # Set up table
-        self.setColumnCount(4)
-        self.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "φ (°)", "χ (°)"])
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        # Hide vertical header (row numbers)
-        self.verticalHeader().setVisible(False)
-
-        # Connect selection change signal
-        self.itemSelectionChanged.connect(self.on_selection_changed)
-
-        # Store the last results for reference
-        self.last_results = None
-
-    def display_results(self, result):
-        """Append calculation results to the table."""
-        # Don't clear table - append new results
-        self.last_results = result
-
-        # Check if we have results
-        if not result or not result.get("success", False):
-            return
-
-
-        # Add rows for each new solution
-        row_position = self.rowCount()
-        self.insertRow(row_position)
-
-        # Add solution data
-        self.setItem(row_position, 0, QTableWidgetItem(f"{result['tth']:.1f}"))
-        self.setItem(row_position, 1, QTableWidgetItem(f"{result['theta']:.1f}"))
-        self.setItem(row_position, 2, QTableWidgetItem(f"{result['phi']:.1f}"))
-        self.setItem(row_position, 3, QTableWidgetItem(f"{result['chi']:.1f}"))
-
-        # Highlight new solutions with light blue background
-        feasible_brush = QBrush(QColor(198, 239, 206))  # light green
-        infeasible_brush = QBrush(QColor(255, 199, 206))  # light red
-        row_color = feasible_brush if result["feasible"] else infeasible_brush
-        for col in range(self.columnCount()):
-            item = self.item(row_position, col)
-            if item:
-                item.setBackground(row_color)
-
-        # Scroll to the bottom to show the new results
-        self.scrollToBottom()
-
-    def on_selection_changed(self):
-        """Handle selection change in the table."""
-        current_row = self.currentRow()
-        if current_row >= 0 and self.last_results:
-            if current_row < 1:
-                selected_solution = self.last_results
-                self.solutionSelected.emit(selected_solution)
-
-    def clear_results(self):
-        """Clear all results from the table."""
-        self.setRowCount(0)
-        self.last_results = None
+        self.setWindowTitle("Calculation History (tth fixed)")
+        self.setMinimumSize(650, 400)
+        
+        layout = QVBoxLayout(self)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        
+        if not history:
+            no_history_label = QLabel("No history available.")
+            no_history_label.setAlignment(Qt.AlignCenter)
+            scroll_layout.addWidget(no_history_label)
+        else:
+            # Display history in reverse order (newest first)
+            for run_idx, entry in enumerate(reversed(history)):
+                run_num = len(history) - run_idx
+                run_frame = QFrame()
+                run_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+                run_layout = QVBoxLayout(run_frame)
+                
+                # Header with HKL values
+                header_label = QLabel(f"Run #{run_num}: H={entry['H']:.4f}, K={entry['K']:.4f}, L={entry['L']:.4f}")
+                header_font = QFont()
+                header_font.setBold(True)
+                header_label.setFont(header_font)
+                run_layout.addWidget(header_label)
+                
+                # Number of solutions
+                num_solutions = entry.get('number_of_solutions', 1)
+                solutions_label = QLabel(f"Solutions found: {num_solutions}")
+                run_layout.addWidget(solutions_label)
+                
+                # Create table for solutions
+                table = QTableWidget()
+                table.setColumnCount(5)
+                table.setHorizontalHeaderLabels(["#", "tth (°)", "θ (°)", "φ (°)", "χ (°)"])
+                table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                table.verticalHeader().setVisible(False)
+                table.setMaximumHeight(100)
+                
+                # Add rows for each solution
+                tth_list = entry.get('tth', [])
+                theta_list = entry.get('theta', [])
+                phi_list = entry.get('phi', [])
+                chi_list = entry.get('chi', [])
+                feasible_list = entry.get('feasible', [])
+                
+                for i in range(len(tth_list)):
+                    table.insertRow(i)
+                    table.setItem(i, 0, QTableWidgetItem(f"{i + 1}"))
+                    table.setItem(i, 1, QTableWidgetItem(f"{tth_list[i]:.2f}"))
+                    table.setItem(i, 2, QTableWidgetItem(f"{theta_list[i]:.2f}"))
+                    table.setItem(i, 3, QTableWidgetItem(f"{phi_list[i]:.2f}"))
+                    table.setItem(i, 4, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+                    
+                    # Color based on feasibility
+                    feasible = feasible_list[i] if i < len(feasible_list) else True
+                    color = QColor(198, 239, 206) if feasible else QColor(255, 199, 206)
+                    for col in range(5):
+                        item = table.item(i, col)
+                        if item:
+                            item.setBackground(QBrush(color))
+                
+                run_layout.addWidget(table)
+                scroll_layout.addWidget(run_frame)
+        
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
 
 
 class HKAnglesResultsWidget(QWidget):
-    """Complete results widget with table and clear button."""
+    """Results widget showing current solutions and history button."""
 
     # Signal emitted when a solution is selected
     solutionSelected = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        # Store history of all results
+        self.history = []
+        self.current_result = None
 
         # Main layout
         layout = QVBoxLayout(self)
@@ -408,23 +430,97 @@ class HKAnglesResultsWidget(QWidget):
         results_group = QGroupBox("Results")
         results_layout = QVBoxLayout(results_group)
 
-        # Create table
-        self.results_table = HKAnglesResultsTable(self)
-        self.results_table.solutionSelected.connect(self.solutionSelected.emit)
+        # Number of solutions label
+        self.solutions_label = QLabel("No results yet")
+        self.solutions_label.setAlignment(Qt.AlignCenter)
+        results_layout.addWidget(self.solutions_label)
+
+        # Current solutions display (table for up to 2 solutions)
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(4)
+        self.results_table.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "φ (°)", "χ (°)"])
+        self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.results_table.verticalHeader().setVisible(False)
+        self.results_table.setMaximumHeight(90)
+        self.results_table.itemSelectionChanged.connect(self._on_selection_changed)
         results_layout.addWidget(self.results_table)
 
-        # Add clear button
-        self.clear_button = QPushButton("Clear Results")
-        self.clear_button.clicked.connect(self.clear_results)
-        self.clear_button.setObjectName("clearButton")
-        results_layout.addWidget(self.clear_button)
+        # Show history button
+        self.history_button = QPushButton("Show History")
+        self.history_button.clicked.connect(self._show_history)
+        self.history_button.setObjectName("historyButton")
+        results_layout.addWidget(self.history_button)
 
         layout.addWidget(results_group)
 
     def display_results(self, results):
-        """Display calculation results."""
-        self.results_table.display_results(results)
+        """Display current calculation results and add to history."""
+        if not results or not results.get("success", False):
+            return
+        
+        self.current_result = results
+        
+        # Add to history
+        self.history.append(results)
+        
+        # Update solutions label
+        num_solutions = results.get('number_of_solutions', 1)
+        self.solutions_label.setText(f"Found {num_solutions} solution(s)")
+        
+        # Clear and populate table
+        self.results_table.setRowCount(0)
+        
+        tth_list = results.get('tth', [])
+        theta_list = results.get('theta', [])
+        phi_list = results.get('phi', [])
+        chi_list = results.get('chi', [])
+        feasible_list = results.get('feasible', [])
+        
+        for i in range(len(tth_list)):
+            row = self.results_table.rowCount()
+            self.results_table.insertRow(row)
+            
+            self.results_table.setItem(row, 0, QTableWidgetItem(f"{tth_list[i]:.2f}"))
+            self.results_table.setItem(row, 1, QTableWidgetItem(f"{theta_list[i]:.2f}"))
+            self.results_table.setItem(row, 2, QTableWidgetItem(f"{phi_list[i]:.2f}"))
+            self.results_table.setItem(row, 3, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+            
+            # Color based on feasibility
+            feasible = feasible_list[i] if i < len(feasible_list) else True
+            color = QColor(198, 239, 206) if feasible else QColor(255, 199, 206)
+            for col in range(4):
+                item = self.results_table.item(row, col)
+                if item:
+                    item.setBackground(QBrush(color))
+
+    def _on_selection_changed(self):
+        """Handle selection change in the table."""
+        current_row = self.results_table.currentRow()
+        if current_row >= 0 and self.current_result:
+            tth_list = self.current_result.get('tth', [])
+            theta_list = self.current_result.get('theta', [])
+            phi_list = self.current_result.get('phi', [])
+            chi_list = self.current_result.get('chi', [])
+            
+            if current_row < len(tth_list):
+                selected_solution = {
+                    'tth': tth_list[current_row],
+                    'theta': theta_list[current_row],
+                    'phi': phi_list[current_row],
+                    'chi': chi_list[current_row],
+                    'H': self.current_result.get('H'),
+                    'K': self.current_result.get('K'),
+                    'L': self.current_result.get('L'),
+                }
+                self.solutionSelected.emit(selected_solution)
+
+    def _show_history(self):
+        """Show history dialog."""
+        dialog = HKAnglesHistoryDialog(self.history, self)
+        dialog.exec_()
 
     def clear_results(self):
-        """Clear all results."""
-        self.results_table.clear_results()
+        """Clear current results (but keep history)."""
+        self.results_table.setRowCount(0)
+        self.solutions_label.setText("No results yet")
+        self.current_result = None

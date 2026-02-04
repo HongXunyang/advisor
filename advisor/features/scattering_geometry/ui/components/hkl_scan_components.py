@@ -373,25 +373,29 @@ class HKLScanControls(QWidget):
 
 
 class HKLScanResultsTable(QTableWidget):
-    """Table to display HKL scan results with multiple solutions."""
+    """Table to display HKL scan results with multiple solutions per HKL point."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        # Set up table
-        self.setColumnCount(7)
-        self.setHorizontalHeaderLabels(["H", "K", "L", "θ (°)", "φ (°)", "χ (°)", "β (°)"])
+        # Set up table - added Sol# column to show solution 1 or 2
+        self.setColumnCount(8)
+        self.setHorizontalHeaderLabels(["H", "K", "L", "Sol#", "θ (°)", "φ (°)", "χ (°)", "β (°)"])
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         # Hide vertical header (row numbers)
         self.verticalHeader().setVisible(False)
 
-        # Define colors for alternating groups white and gray
+        # Define colors for alternating HKL groups and solutions
         self.group_colors = [
-            QColor(255, 255, 255),  # White
-            QColor(230, 230, 240),  # Gray
-            QColor(166, 45, 45),  # Red
+            QColor(255, 255, 255),  # White - group 0
+            QColor(230, 230, 240),  # Light gray - group 1
         ]
+        self.solution_colors = [
+            QColor(240, 248, 255),  # Alice blue - solution 1
+            QColor(255, 250, 240),  # Floral white - solution 2
+        ]
+        self.infeasible_color = QColor(255, 199, 206)  # Light red
 
         # Enable sorting
         self.setSortingEnabled(True)
@@ -411,7 +415,7 @@ class HKLScanResultsTable(QTableWidget):
         self.last_results = None
 
     def display_results(self, results):
-        """Display results in the table."""
+        """Display results in the table with visual separation for solution groups."""
         self.setSortingEnabled(False)  # Temporarily disable sorting
         self.setRowCount(0)  # Clear table
 
@@ -423,6 +427,7 @@ class HKLScanResultsTable(QTableWidget):
 
         # Store results for later export
         self.last_results = results
+        
         # Get data from results
         h_values = results["H"]
         k_values = results["K"]
@@ -431,8 +436,11 @@ class HKLScanResultsTable(QTableWidget):
         theta_values = results["theta"]
         phi_values = results["phi"]
         chi_values = results["chi"]
+        feasible_values = results.get("feasible", [True] * len(h_values))
+        solution_groups = results.get("solution_group", list(range(len(h_values))))
+        solution_indices = results.get("solution_index", [1] * len(h_values))
 
-        # Add a row for each result with alternating colors
+        # Add a row for each result
         for i in range(len(h_values)):
             row_position = self.rowCount()
             self.insertRow(row_position)
@@ -441,15 +449,25 @@ class HKLScanResultsTable(QTableWidget):
             self.setItem(row_position, 0, QTableWidgetItem(f"{h_values[i]:.4f}"))
             self.setItem(row_position, 1, QTableWidgetItem(f"{k_values[i]:.4f}"))
             self.setItem(row_position, 2, QTableWidgetItem(f"{l_values[i]:.4f}"))
+            
+            # Add solution number
+            sol_idx = solution_indices[i] if i < len(solution_indices) else 1
+            self.setItem(row_position, 3, QTableWidgetItem(f"{sol_idx}"))
 
             # Add angle values
-            self.setItem(row_position, 3, QTableWidgetItem(f"{theta_values[i]:.1f}"))
-            self.setItem(row_position, 4, QTableWidgetItem(f"{phi_values[i]:.1f}"))
-            self.setItem(row_position, 5, QTableWidgetItem(f"{chi_values[i]:.1f}"))
-            self.setItem(row_position, 6, QTableWidgetItem(f"{tth_values[0]-theta_values[i]:.1f}"))
+            self.setItem(row_position, 4, QTableWidgetItem(f"{theta_values[i]:.1f}"))
+            self.setItem(row_position, 5, QTableWidgetItem(f"{phi_values[i]:.1f}"))
+            self.setItem(row_position, 6, QTableWidgetItem(f"{chi_values[i]:.1f}"))
+            self.setItem(row_position, 7, QTableWidgetItem(f"{tth_values[0]-theta_values[i]:.1f}"))
 
-            # Apply alternating row colors
-            row_color = self.group_colors[i % 2] if results["feasible"][i] else self.group_colors[2]
+            # Determine row color based on feasibility and group
+            if not feasible_values[i]:
+                row_color = self.infeasible_color
+            else:
+                # Alternate colors by HKL group
+                group_idx = solution_groups[i] if i < len(solution_groups) else i
+                row_color = self.group_colors[group_idx % 2]
+            
             for col in range(self.columnCount()):
                 item = self.item(row_position, col)
                 if item:
@@ -489,24 +507,31 @@ class HKLScanResultsTable(QTableWidget):
                         "H",
                         "K",
                         "L",
+                        "Solution#",
                         "tth (deg)",
                         "theta (deg)",
                         "phi (deg)",
                         "chi (deg)",
+                        "feasible",
                     ]
                 )
 
                 # Write data
+                solution_indices = self.last_results.get("solution_index", [1] * len(self.last_results["tth"]))
+                feasible_values = self.last_results.get("feasible", [True] * len(self.last_results["tth"]))
+                
                 for i in range(len(self.last_results["tth"])):
                     writer.writerow(
                         [
                             f"{self.last_results['H'][i]:.6f}",
                             f"{self.last_results['K'][i]:.6f}",
                             f"{self.last_results['L'][i]:.6f}",
+                            f"{solution_indices[i]}",
                             f"{self.last_results['tth'][i]:.6f}",
                             f"{self.last_results['theta'][i]:.6f}",
                             f"{self.last_results['phi'][i]:.6f}",
                             f"{self.last_results['chi'][i]:.6f}",
+                            f"{feasible_values[i]}",
                         ]
                     )
 
