@@ -225,3 +225,117 @@ class TestFeasibility:
                 theta = result["theta"][i]
                 expected_feasible = (theta > 0) and (theta < tth)
                 assert result["feasible"][i] == expected_feasible
+
+
+class TestCalculateHKL:
+    """Tests for calculate_hkl method (angles -> HKL) for all crystal types."""
+    
+    @pytest.mark.parametrize("crystal_type", ALL_CRYSTAL_TYPES)
+    def test_returns_success_for_valid_angles(self, make_calculator, crystal_type):
+        """Should return success=True for valid angle inputs."""
+        calc = make_calculator(crystal_type)
+        
+        result = calc.calculate_hkl(
+            tth=120.0,
+            theta=60.0,
+            phi=0.0,
+            chi=0.0,
+        )
+        
+        assert result["success"] is True, f"Failed for {crystal_type}"
+        assert result["error"] is None
+    
+    @pytest.mark.parametrize("crystal_type", ALL_CRYSTAL_TYPES)
+    def test_returns_hkl_values(self, make_calculator, crystal_type):
+        """Result should contain H, K, L float values."""
+        calc = make_calculator(crystal_type)
+        
+        result = calc.calculate_hkl(
+            tth=120.0,
+            theta=60.0,
+            phi=0.0,
+            chi=0.0,
+        )
+        
+        assert "H" in result
+        assert "K" in result
+        assert "L" in result
+        assert isinstance(result["H"], float), f"[{crystal_type}] H is not float"
+        assert isinstance(result["K"], float), f"[{crystal_type}] K is not float"
+        assert isinstance(result["L"], float), f"[{crystal_type}] L is not float"
+    
+    @pytest.mark.parametrize("crystal_type", ALL_CRYSTAL_TYPES)
+    def test_returns_input_angles(self, make_calculator, crystal_type):
+        """Result should echo back the input angles."""
+        calc = make_calculator(crystal_type)
+        tth, theta, phi, chi = 120.0, 60.0, 15.0, 5.0
+        
+        result = calc.calculate_hkl(
+            tth=tth, theta=theta, phi=phi, chi=chi
+        )
+        
+        assert result["tth"] == tth, f"[{crystal_type}] tth mismatch"
+        assert result["theta"] == theta, f"[{crystal_type}] theta mismatch"
+        assert result["phi"] == phi, f"[{crystal_type}] phi mismatch"
+        assert result["chi"] == chi, f"[{crystal_type}] chi mismatch"
+    
+    def test_raises_if_not_initialized(self):
+        """Should raise error if calculator not initialized."""
+        calc = BrillouinCalculator()
+        
+        with pytest.raises(ValueError, match="not initialized"):
+            calc.calculate_hkl(tth=120.0, theta=60.0, phi=0.0, chi=0.0)
+    
+    @pytest.mark.parametrize("crystal_type", ALL_CRYSTAL_TYPES)
+    @pytest.mark.parametrize("angles", [
+        (90.0, 45.0, 0.0, 0.0),
+        (120.0, 60.0, 0.0, 0.0),
+        (150.0, 75.0, 10.0, 5.0),
+        (60.0, 30.0, -15.0, 0.0),
+    ])
+    def test_various_angle_combinations(self, make_calculator, crystal_type, angles):
+        """Test that various angle combinations work for all crystal types."""
+        calc = make_calculator(crystal_type)
+        tth, theta, phi, chi = angles
+        
+        result = calc.calculate_hkl(tth=tth, theta=theta, phi=phi, chi=chi)
+        
+        assert result["success"], f"[{crystal_type}] Failed for angles {angles}"
+        assert isinstance(result["H"], float)
+        assert isinstance(result["K"], float)
+        assert isinstance(result["L"], float)
+    
+    # =========================================================================
+    # Known angle-HKL pairs (PLACEHOLDERS - fill in with verified values)
+    # =========================================================================
+    # TODO: Fill in the expected H, K, L values for these known angle combinations
+    #       These should be verified experimentally or calculated independently
+    #       Note: Each crystal type may need its own set of verified pairs
+    
+    @pytest.mark.parametrize("angles,expected_hkl", [
+        # Format: (tth, theta, phi, chi), (H, K, L)
+        # Example placeholder for TETRAGONAL - replace with actual verified values:
+        ((120.0, 60.0, 0.0, 0.0), (0.0, 0.0, -0.5)),  # TODO: verify
+        ((150.0, 75.0, 0.0, 0.0), (0.0, 0.0, -0.6)),  # TODO: verify
+        # Add more known pairs here...
+    ])
+    def test_known_angle_hkl_pairs_tetragonal(self, make_calculator, angles, expected_hkl):
+        """Test known angle-HKL pairs for TETRAGONAL crystal."""
+        """
+        calc = make_calculator("tetragonal")
+        tth, theta, phi, chi = angles
+        expected_H, expected_K, expected_L = expected_hkl
+        
+        result = calc.calculate_hkl(tth=tth, theta=theta, phi=phi, chi=chi)
+        
+        assert result["success"]
+        assert result["H"] == pytest.approx(expected_H, abs=0.01), \
+            f"H mismatch: got {result['H']}, expected {expected_H}"
+        assert result["K"] == pytest.approx(expected_K, abs=0.01), \
+            f"K mismatch: got {result['K']}, expected {expected_K}"
+        assert result["L"] == pytest.approx(expected_L, abs=0.01), \
+            f"L mismatch: got {result['L']}, expected {expected_L}"
+        """
+    # TODO: Add similar test_known_angle_hkl_pairs_cubic, _hexagonal, etc.
+    # when you have verified angle-HKL pairs for those crystal types
+    
