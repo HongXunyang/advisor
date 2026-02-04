@@ -6,7 +6,8 @@ from typing import Optional
 
 from PyQt5.QtWidgets import QApplication
 
-from advisor.features import ScatteringGeometryController, StructureFactorController
+from advisor.features.scattering_geometry.controllers import ScatteringGeometryController
+from advisor.features.structure_factor.controllers import StructureFactorController
 from advisor.ui.init_window import InitWindow
 from advisor.ui.main_window import MainWindow
 

@@ -253,7 +253,7 @@ def _calculate_angles_chi_fixed(
     yaw,
     chi_fixed,
     target_objective=1e-10,
-    max_restarts=20,
+    max_restarts=40,
 ):
     """Calculate scattering angles with chi angle (in degrees) fixed.
 
@@ -268,7 +268,7 @@ def _calculate_angles_chi_fixed(
         roll, pitch, yaw (float): Lattice rotation Euler angles in degrees. We use ZYX convention.
         chi_fixed (float): Fixed chi angle in degrees
         target_objective (float, optional): Convergence tolerance for fsolve. Defaults to 1e-10.
-        max_restarts (int, optional): Maximum number of random restarts. Defaults to 20.
+        max_restarts (int, optional): Maximum number of random restarts. Defaults to 40.
 
     Returns:
         dict: Dictionary containing:
@@ -384,7 +384,7 @@ def _calculate_angles_phi_fixed(
     yaw,
     phi_fixed,
     target_objective=1e-10,
-    max_restarts=20,
+    max_restarts=40,
 ):
     """Calculate scattering angles with phi angle fixed.
 
@@ -399,7 +399,7 @@ def _calculate_angles_phi_fixed(
         roll, pitch, yaw (float): Lattice rotation Euler angles in degrees. We use ZYX convention.
         phi_fixed (float): Fixed phi angle in degrees
         target_objective (float, optional): Convergence tolerance for fsolve. Defaults to 1e-10.
-        max_restarts (int, optional): Maximum number of random restarts. Defaults to 20.
+        max_restarts (int, optional): Maximum number of random restarts. Defaults to 40.
 
     Returns:
         dict: Dictionary containing:
