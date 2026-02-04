@@ -20,24 +20,16 @@ or use the link below to view the demo video.
 ## Install
 - Python 3.8+ with PyQt5, numpy, scipy, matplotlib, Dans_Diffraction (see `requirements.txt`).
 
-From PyPI:
+It is recommened to install from PyPI:
 ```bash
 pip install advisor-scattering
 ```
 
-From source:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # .venv\Scripts\activate on Windows
-pip install -r requirements.txt
-pip install .
-```
-
 ## Run
 ```bash
-advisor-scattering
-# or
 advisor
+# or
+advisor-scattering
 # or
 python -m advisor
 ```
