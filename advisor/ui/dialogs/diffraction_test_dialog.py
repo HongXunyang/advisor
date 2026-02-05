@@ -32,7 +32,7 @@ class DiffractionTestDialog(QDialog):
 
         self.setWindowTitle("Import Orientation from Diffraction Tests")
         self.setMinimumWidth(800)
-        self.setMinimumHeight(400)
+        self.setMinimumHeight(550)
 
         self._init_ui()
 
@@ -134,8 +134,8 @@ class DiffractionTestDialog(QDialog):
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        # Set default values
-        defaults = [0.0, 0.0, 0.0, 930.0, 90.0, 45.0, 0.0, 0.0]
+        # Set default values (H, K, L, energy, tth, theta, phi, chi)
+        defaults = [0.0, 0.0, 0.0, 2200.0, 90.0, 45.0, 0.0, 0.0]
         for col, default in enumerate(defaults):
             item = QTableWidgetItem(str(default))
             item.setTextAlignment(Qt.AlignCenter)
@@ -207,12 +207,14 @@ class DiffractionTestDialog(QDialog):
             )
             return
 
-        # Display results
+        # Display results (overwrites any previous results)
         self.roll_result.setValue(result["roll"])
         self.pitch_result.setValue(result["pitch"])
         self.yaw_result.setValue(result["yaw"])
         self.error_label.setText(f"Residual Error: {result['residual_error']:.6f}")
 
+        # Update group title to indicate results are current
+        self.results_group.setTitle("Calculated Orientation (Updated)")
         self.results_group.setVisible(True)
         self.apply_btn.setEnabled(True)
 
