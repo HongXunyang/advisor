@@ -30,7 +30,7 @@ class DiffractionTestDialog(QDialog):
         self.lattice_params = lattice_params
         self.result = None  # Will store (roll, pitch, yaw) on success
 
-        self.setWindowTitle("Import Orientation from Diffraction Tests")
+        self.setWindowTitle("Import Orientation from UB Matrix Tests")
         self.setMinimumWidth(800)
         self.setMinimumHeight(550)
 
@@ -42,7 +42,7 @@ class DiffractionTestDialog(QDialog):
 
         # Instructions label
         instructions = QLabel(
-            "Enter diffraction test data below. Each row represents a measurement "
+            "Enter UB matrix test (diffraction test) data below. Each row represents a measurement "
             "with known HKL indices and measured angles. At least one test is required."
         )
         instructions.setWordWrap(True)
@@ -116,6 +116,7 @@ class DiffractionTestDialog(QDialog):
 
         self.calculate_btn = QPushButton("Calculate Orientation")
         self.calculate_btn.clicked.connect(self._calculate_orientation)
+        self._set_button_highlighted(self.calculate_btn, True)  # Highlight initially
         button_layout.addWidget(self.calculate_btn)
 
         self.apply_btn = QPushButton("Apply and Close")
@@ -128,6 +129,24 @@ class DiffractionTestDialog(QDialog):
         button_layout.addWidget(cancel_btn)
 
         layout.addLayout(button_layout)
+
+    def _set_button_highlighted(self, button: QPushButton, highlighted: bool):
+        """Set button to highlighted (pastel blue) or normal style."""
+        if highlighted:
+            button.setStyleSheet(
+                "background-color: #a8d0f0; color: #2c5282; font-weight: bold;"
+            )
+        else:
+            button.setStyleSheet("")  # Reset to default
+
+    def _set_button_success(self, button: QPushButton, success: bool):
+        """Set button to success (pastel green) or normal style."""
+        if success:
+            button.setStyleSheet(
+                "background-color: #a8e6c1; color: #2d5a3d; font-weight: bold;"
+            )
+        else:
+            button.setStyleSheet("")  # Reset to default
 
     def _add_row(self):
         """Add a new empty row to the table."""
@@ -217,6 +236,10 @@ class DiffractionTestDialog(QDialog):
         self.results_group.setTitle("Calculated Orientation (Updated)")
         self.results_group.setVisible(True)
         self.apply_btn.setEnabled(True)
+
+        # Update button styles: remove highlight from Calculate, add to Apply
+        self._set_button_highlighted(self.calculate_btn, False)
+        self._set_button_success(self.apply_btn, True)
 
         # Store result for later retrieval
         self.result = {

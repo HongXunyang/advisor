@@ -1,25 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-from PyQt5.QtWidgets import (
-    QWidget,
-    QGridLayout,
-    QFormLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QDoubleSpinBox,
-    QGroupBox,
-    QMessageBox,
-    QFileDialog,
-)
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+from PyQt5.QtWidgets import (QDoubleSpinBox, QFileDialog, QFormLayout,
+                             QGridLayout, QGroupBox, QLabel, QLineEdit,
+                             QMessageBox, QPushButton, QWidget)
 
 from advisor.domain import UnitConverter
+from advisor.ui.dialogs import DiffractionTestDialog
 from advisor.ui.utils import readcif
 from advisor.ui.visualizers import CoordinateVisualizer, UnitcellVisualizer
-from advisor.ui.dialogs import DiffractionTestDialog
 
 
 class DragDropLineEdit(QLineEdit):
@@ -221,7 +212,7 @@ class InitWindow(QWidget):
         euler_layout.addRow("Yaw:", self.yaw_input)
 
         # Add "Import from Diffraction Test" button
-        self.import_orientation_btn = QPushButton("Import from Diffraction Test")
+        self.import_orientation_btn = QPushButton("Import from UB Matrix Diffraction Tests")
         self.import_orientation_btn.setToolTip(
             "Calculate Euler angles from known diffraction measurements"
         )
