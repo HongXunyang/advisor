@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "advisor-scattering"
-version = "0.5.3"
+version = "0.9.1"
 description = "Advisor-Scattering: Advanced Visual X-ray Scattering Toolkit for Reciprocal-space visualization and calculation"
 readme = "README.md"
 requires-python = ">=3.8"
