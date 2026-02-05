@@ -2,10 +2,7 @@
 
 import numpy as np
 
-from advisor.domain import (
-    get_real_space_vectors,
-    get_reciprocal_space_vectors,
-)
+from advisor.domain import get_real_space_vectors, get_reciprocal_space_vectors
 
 
 class Lattice:
@@ -31,7 +28,7 @@ class Lattice:
         self.c_star_vec_lattice = None
 
     def initialize(self, a, b, c, alpha, beta, gamma):
-        """Initialize the sample.
+        """Initialize by calculating the real and reciprocal space vectors.
 
         Args:
             a, b, c (float): Lattice constants in Angstroms

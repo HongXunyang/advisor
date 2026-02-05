@@ -19,6 +19,7 @@ from PyQt5.QtGui import QDragEnterEvent, QDropEvent
 from advisor.domain import UnitConverter
 from advisor.ui.utils import readcif
 from advisor.ui.visualizers import CoordinateVisualizer, UnitcellVisualizer
+from advisor.ui.dialogs import DiffractionTestDialog
 
 
 class DragDropLineEdit(QLineEdit):
@@ -219,6 +220,14 @@ class InitWindow(QWidget):
         self.yaw_input.valueChanged.connect(self.update_visualization)
         euler_layout.addRow("Yaw:", self.yaw_input)
 
+        # Add "Import from Diffraction Test" button
+        self.import_orientation_btn = QPushButton("Import from Diffraction Test")
+        self.import_orientation_btn.setToolTip(
+            "Calculate Euler angles from known diffraction measurements"
+        )
+        self.import_orientation_btn.clicked.connect(self.open_diffraction_test_dialog)
+        euler_layout.addRow(self.import_orientation_btn)
+
         # Add euler group to main layout at (0,2)
         layout.addWidget(euler_group, 0, 2)
 
@@ -282,6 +291,30 @@ class InitWindow(QWidget):
         if file_path:
             self.file_path_input.setText(file_path)
             # on_cif_file_changed will be triggered by textChanged
+
+    @pyqtSlot()
+    def open_diffraction_test_dialog(self):
+        """Open the diffraction test dialog to import orientation from measurements."""
+        # Gather current lattice parameters
+        lattice_params = {
+            "a": self.a_input.value(),
+            "b": self.b_input.value(),
+            "c": self.c_input.value(),
+            "alpha": self.alpha_input.value(),
+            "beta": self.beta_input.value(),
+            "gamma": self.gamma_input.value(),
+        }
+
+        # Open the dialog
+        dialog = DiffractionTestDialog(lattice_params, self)
+        if dialog.exec_() == DiffractionTestDialog.Accepted:
+            result = dialog.get_result()
+            if result is not None:
+                # Apply the calculated Euler angles
+                self.roll_input.setValue(result["roll"])
+                self.pitch_input.setValue(result["pitch"])
+                self.yaw_input.setValue(result["yaw"])
+                # update_visualization will be triggered by valueChanged signals
 
     def set_lattice_inputs_enabled(self, enabled: bool):
         """Enable/disable lattice parameter inputs (a,b,c,alpha,beta,gamma)."""

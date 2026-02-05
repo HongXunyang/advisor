@@ -105,6 +105,18 @@ class BrillouinCalculator:
             print(f"Error initializing calculator: {str(e)}")
             return False
 
+    def change_energy(self, energy):
+        """Change the energy of the X-ray source, in eV"""
+        self.energy = energy
+        self.lambda_A = self.ev_to_lambda / self.energy
+        self.k_in = 2 * np.pi / self.lambda_A
+        return True
+    
+    def reorient_sample(self, roll, pitch, yaw):
+        """Reorient the sample with respect to the lab"""
+        self.lab.reorient(roll, pitch, yaw)
+        return True
+
     def _sample_to_lab_conversion(self, a_vec, b_vec, c_vec):
         """Convert vectors from sample coordinate system to lab coordinate system."""
         # For now, just return the same vectors

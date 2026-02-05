@@ -10,6 +10,8 @@ from .geometry import (
     lab_to_sample_conversion,
 )
 from .unit_converter import UnitConverter
+from .orientation import fit_orientation_from_diffraction_tests
+from .orientation_calculator import OrientationCalculator
 
 __all__ = [
     "get_real_space_vectors",
@@ -20,4 +22,6 @@ __all__ = [
     "sample_to_lab_conversion",
     "lab_to_sample_conversion",
     "UnitConverter",
+    "fit_orientation_from_diffraction_tests",
+    "OrientationCalculator",
 ]

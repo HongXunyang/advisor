@@ -3,7 +3,9 @@
 import numpy as np
 
 from advisor.domain import euler_to_matrix
+
 from .lattice import Lattice
+
 
 class Sample:
     """This is a class for the sample."""
@@ -97,5 +99,10 @@ class Sample:
         self.b_star_vec_sample = rotation_matrix @ b_star_vec_lattice
         self.c_star_vec_sample = rotation_matrix @ c_star_vec_lattice
 
-    def rotate(self, theta, phi, chi):
-        """Rotate the sample."""
+    def reorient(self,roll, pitch, yaw):
+        """reorient the sample"""
+        self.roll = roll
+        self.pitch = pitch
+        self.yaw = yaw
+        self.calculate_real_space_vectors()
+        self.calculate_reciprocal_space_vectors()

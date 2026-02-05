@@ -3,8 +3,8 @@
 import numpy as np
 
 from advisor.domain import angle_to_matrix
-from .sample import Sample
 
+from .sample import Sample
 
 
 class Lab:
@@ -113,9 +113,16 @@ class Lab:
         return ex_lattice_in_lab, ey_lattice_in_lab, ez_lattice_in_lab
 
     def rotate(self, theta, phi, chi):
-        """Rotate the lab."""
+        """Rotate the lab / goniometer"""
         self.theta = theta
         self.phi = phi
         self.chi = chi
         self.calculate_real_space_vectors()
         self.calculate_reciprocal_space_vectors()
+    
+    def reorient(self,roll, pitch, yaw):
+        """reorient the sample with respect to the lab"""
+        self.sample.reorient(roll, pitch, yaw)
+        self.calculate_real_space_vectors()
+        self.calculate_reciprocal_space_vectors()
+
