@@ -8,8 +8,18 @@ Initialization window
 ---------------------
 - Enter lattice constants (a, b, c) and angles (α, β, γ). (Optionally) You can also drop in a CIF file to auto-fill lattice parameters and preview the unit cell.
 - Enter beam energy (eV); wavelength (λ) and wave vector magnitude (|k|) update automatically.
-- Euler angles (roll, pitch, yaw) update the orientation of the sample relative to the scattering plane.
+- Euler angles (roll, pitch, yaw) update the orientation of the lattice/sample relative to the goniometer.
 - Click **Initialize** to pass parameters to all tabs and open the main interface.
+
+**Import Orientation from Diffraction Tests:**
+If you have diffraction test data (known HKL values with measured angles), you can automatically determine the Euler angles:
+
+1. Click **Import from Diffraction Test** in the Euler Angles panel.
+2. Enter your diffraction measurements (H, K, L, energy, 2θ, θ, φ, χ) in the table.
+3. Click **Calculate Orientation** to find the optimal Euler angles that fit your data.
+4. Click **Apply and Close** to populate the roll, pitch, yaw fields.
+
+The algorithm uses least-squares optimization with multiple random restarts to find the best orientation that minimizes the difference between calculated and measured HKL values.
 
 .. image:: _static/init.jpg
    :alt: Screenshot of the initialization window with callouts.

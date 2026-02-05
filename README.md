@@ -15,6 +15,7 @@ or use the link below to view the demo video.
 - Visualize scattering geometry and unit cells
 - Compute and visualize structure factors in reciprocal space.
 - CIF file drop-in support
+- Import crystal orientation from diffraction test data
 
 
 ## Install
@@ -53,7 +54,8 @@ python -m advisor
 ### 1. Initialization window
 - Enter lattice constants (a, b, c) and angles (alpha, beta, gamma); beam energy auto-updates wavelength/|k|.
 - Optional: drop a CIF to autofill lattice parameters and preview the unit cell.
-- Adjust Euler angles (roll, pitch, yaw) to orient the sample relative to the scattering plane;
+- Adjust Euler angles (roll, pitch, yaw) to orient the lattice/sample relative to the goniometer.
+- **New:** Use **Import from Diffraction Test** to automatically determine Euler angles from known diffraction measurements.
 - Click **Initialize** to load the main interface and pass parameters to all tabs.
 
 ### 2. Scattering Geometry tab
