@@ -52,7 +52,7 @@ class DiffractionTestDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels(
-            ["H", "K", "L", "Energy (eV)", "tth (°)", "θ (°)", "φ (°)", "χ (°)"]
+            ["H", "K", "L", "Energy (eV)", "tth (°)", "θ (°)", "χ (°)", "φ (°)"]
         )
 
         # Set column resize mode
@@ -153,7 +153,7 @@ class DiffractionTestDialog(QDialog):
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        # Set default values (H, K, L, energy, tth, theta, phi, chi)
+        # Set default values (H, K, L, energy, tth, theta, chi, phi)
         defaults = [0.0, 0.0, 0.0, 2200.0, 90.0, 45.0, 0.0, 0.0]
         for col, default in enumerate(defaults):
             item = QTableWidgetItem(str(default))
@@ -185,8 +185,8 @@ class DiffractionTestDialog(QDialog):
                     "energy": float(self.table.item(row, 3).text()),
                     "tth": float(self.table.item(row, 4).text()),
                     "theta": float(self.table.item(row, 5).text()),
-                    "phi": float(self.table.item(row, 6).text()),
-                    "chi": float(self.table.item(row, 7).text()),
+                    "chi": float(self.table.item(row, 6).text()),
+                    "phi": float(self.table.item(row, 7).text()),
                 }
                 tests.append(test)
             except (ValueError, AttributeError) as e:

@@ -1,26 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QFormLayout,
-    QGroupBox,
-    QLabel,
-    QPushButton,
-    QDoubleSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QButtonGroup,
-    QMessageBox,
-    QDialog,
-    QScrollArea,
-    QFrame,
-)
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QBrush, QFont
+from PyQt5.QtGui import QBrush, QColor, QFont
+from PyQt5.QtWidgets import (QButtonGroup, QDialog, QDoubleSpinBox,
+                             QFormLayout, QFrame, QGroupBox, QHBoxLayout,
+                             QHeaderView, QLabel, QMessageBox, QPushButton,
+                             QScrollArea, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
 
 
 class HKAnglesControls(QWidget):
@@ -369,7 +356,7 @@ class HKAnglesHistoryDialog(QDialog):
                 # Create table for solutions
                 table = QTableWidget()
                 table.setColumnCount(5)
-                table.setHorizontalHeaderLabels(["#", "tth (°)", "θ (°)", "φ (°)", "χ (°)"])
+                table.setHorizontalHeaderLabels(["#", "tth (°)", "θ (°)", "χ (°)", "φ (°)"])
                 table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
                 table.verticalHeader().setVisible(False)
                 table.setMaximumHeight(100)
@@ -377,8 +364,8 @@ class HKAnglesHistoryDialog(QDialog):
                 # Add rows for each solution
                 tth_list = entry.get('tth', [])
                 theta_list = entry.get('theta', [])
-                phi_list = entry.get('phi', [])
                 chi_list = entry.get('chi', [])
+                phi_list = entry.get('phi', [])
                 feasible_list = entry.get('feasible', [])
                 
                 for i in range(len(tth_list)):
@@ -386,8 +373,8 @@ class HKAnglesHistoryDialog(QDialog):
                     table.setItem(i, 0, QTableWidgetItem(f"{i + 1}"))
                     table.setItem(i, 1, QTableWidgetItem(f"{tth_list[i]:.2f}"))
                     table.setItem(i, 2, QTableWidgetItem(f"{theta_list[i]:.2f}"))
-                    table.setItem(i, 3, QTableWidgetItem(f"{phi_list[i]:.2f}"))
-                    table.setItem(i, 4, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+                    table.setItem(i, 3, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+                    table.setItem(i, 4, QTableWidgetItem(f"{phi_list[i]:.2f}"))
                     
                     # Color based on feasibility
                     feasible = feasible_list[i] if i < len(feasible_list) else True
@@ -438,7 +425,7 @@ class HKAnglesResultsWidget(QWidget):
         # Current solutions display (table for up to 2 solutions)
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(4)
-        self.results_table.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "φ (°)", "χ (°)"])
+        self.results_table.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "χ (°)", "φ (°)"])
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.results_table.verticalHeader().setVisible(False)
         self.results_table.setMaximumHeight(90)
@@ -472,8 +459,8 @@ class HKAnglesResultsWidget(QWidget):
         
         tth_list = results.get('tth', [])
         theta_list = results.get('theta', [])
-        phi_list = results.get('phi', [])
         chi_list = results.get('chi', [])
+        phi_list = results.get('phi', [])
         feasible_list = results.get('feasible', [])
         
         for i in range(len(tth_list)):
@@ -482,8 +469,8 @@ class HKAnglesResultsWidget(QWidget):
             
             self.results_table.setItem(row, 0, QTableWidgetItem(f"{tth_list[i]:.2f}"))
             self.results_table.setItem(row, 1, QTableWidgetItem(f"{theta_list[i]:.2f}"))
-            self.results_table.setItem(row, 2, QTableWidgetItem(f"{phi_list[i]:.2f}"))
-            self.results_table.setItem(row, 3, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+            self.results_table.setItem(row, 2, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+            self.results_table.setItem(row, 3, QTableWidgetItem(f"{phi_list[i]:.2f}"))
             
             # Color based on feasibility
             feasible = feasible_list[i] if i < len(feasible_list) else True
@@ -499,15 +486,15 @@ class HKAnglesResultsWidget(QWidget):
         if current_row >= 0 and self.current_result:
             tth_list = self.current_result.get('tth', [])
             theta_list = self.current_result.get('theta', [])
-            phi_list = self.current_result.get('phi', [])
             chi_list = self.current_result.get('chi', [])
+            phi_list = self.current_result.get('phi', [])
             
             if current_row < len(tth_list):
                 selected_solution = {
                     'tth': tth_list[current_row],
                     'theta': theta_list[current_row],
-                    'phi': phi_list[current_row],
                     'chi': chi_list[current_row],
+                    'phi': phi_list[current_row],
                     'H': self.current_result.get('H'),
                     'K': self.current_result.get('K'),
                     'L': self.current_result.get('L'),

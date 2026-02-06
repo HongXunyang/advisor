@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QFormLayout,
-    QGroupBox,
-    QLabel,
-    QPushButton,
-    QDoubleSpinBox,
-    QLineEdit,
-)
 from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import (QDoubleSpinBox, QFormLayout, QGroupBox, QLabel,
+                             QLineEdit, QPushButton, QVBoxLayout, QWidget)
 
 
 class AnglesToHKLControls(QWidget):
@@ -48,14 +40,6 @@ class AnglesToHKLControls(QWidget):
         self.theta_input.valueChanged.connect(self.anglesChanged.emit)
         form_layout.addRow("θ:", self.theta_input)
 
-        # phi input
-        self.phi_input = QDoubleSpinBox()
-        self.phi_input.setRange(-180.0, 180.0)
-        self.phi_input.setValue(0.0)
-        self.phi_input.setSuffix(" °")
-        self.phi_input.valueChanged.connect(self.anglesChanged.emit)
-        form_layout.addRow("φ:", self.phi_input)
-
         # chi input
         self.chi_input = QDoubleSpinBox()
         self.chi_input.setRange(-180.0, 180.0)
@@ -63,6 +47,14 @@ class AnglesToHKLControls(QWidget):
         self.chi_input.setSuffix(" °")
         self.chi_input.valueChanged.connect(self.anglesChanged.emit)
         form_layout.addRow("χ:", self.chi_input)
+
+        # phi input
+        self.phi_input = QDoubleSpinBox()
+        self.phi_input.setRange(-180.0, 180.0)
+        self.phi_input.setValue(0.0)
+        self.phi_input.setSuffix(" °")
+        self.phi_input.valueChanged.connect(self.anglesChanged.emit)
+        form_layout.addRow("φ:", self.phi_input)
 
         main_layout.addWidget(form_group)
 

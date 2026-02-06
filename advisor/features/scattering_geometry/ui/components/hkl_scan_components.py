@@ -1,29 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QFormLayout,
-    QGroupBox,
-    QLabel,
-    QPushButton,
-    QDoubleSpinBox,
-    QSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QRadioButton,
-    QButtonGroup,
-    QFileDialog,
-    QMessageBox,
-)
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QColor, QBrush
 import csv
 import os
+
 import numpy as np
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFileDialog,
+                             QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
+                             QLabel, QMessageBox, QPushButton, QRadioButton,
+                             QSpinBox, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
+
 
 class RangeInputWidget(QWidget):
     """Widget for input range (start, end, num_points)."""
@@ -434,8 +423,8 @@ class HKLScanResultsTable(QTableWidget):
         l_values = results["L"]
         tth_values = results["tth"]
         theta_values = results["theta"]
-        phi_values = results["phi"]
         chi_values = results["chi"]
+        phi_values = results["phi"]
         feasible_values = results.get("feasible", [True] * len(h_values))
         solution_groups = results.get("solution_group", list(range(len(h_values))))
         solution_indices = results.get("solution_index", [1] * len(h_values))
@@ -456,8 +445,8 @@ class HKLScanResultsTable(QTableWidget):
 
             # Add angle values
             self.setItem(row_position, 4, QTableWidgetItem(f"{theta_values[i]:.1f}"))
-            self.setItem(row_position, 5, QTableWidgetItem(f"{phi_values[i]:.1f}"))
-            self.setItem(row_position, 6, QTableWidgetItem(f"{chi_values[i]:.1f}"))
+            self.setItem(row_position, 5, QTableWidgetItem(f"{chi_values[i]:.1f}"))
+            self.setItem(row_position, 6, QTableWidgetItem(f"{phi_values[i]:.1f}"))
             self.setItem(row_position, 7, QTableWidgetItem(f"{tth_values[0]-theta_values[i]:.1f}"))
 
             # Determine row color based on feasibility and group
@@ -510,8 +499,8 @@ class HKLScanResultsTable(QTableWidget):
                         "Solution#",
                         "tth (deg)",
                         "theta (deg)",
-                        "phi (deg)",
                         "chi (deg)",
+                        "phi (deg)",
                         "feasible",
                     ]
                 )
@@ -529,8 +518,8 @@ class HKLScanResultsTable(QTableWidget):
                             f"{solution_indices[i]}",
                             f"{self.last_results['tth'][i]:.6f}",
                             f"{self.last_results['theta'][i]:.6f}",
-                            f"{self.last_results['phi'][i]:.6f}",
                             f"{self.last_results['chi'][i]:.6f}",
+                            f"{self.last_results['phi'][i]:.6f}",
                             f"{feasible_values[i]}",
                         ]
                     )

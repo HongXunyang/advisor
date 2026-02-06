@@ -446,7 +446,8 @@ class BrillouinCalculator:
             "error": None,
             "feasible": all_feasible,
         }
-
+    
+    
     def is_initialized(self):
         """Check if the calculator is initialized.
 
@@ -470,6 +471,35 @@ class BrillouinCalculator:
             "beta": beta,
             "gamma": gamma,
         }
+
+
+    def get_max_hkl_values(self, tth):
+        """Get the maximum HKL values, valid only for orthorhombic crystals.
+
+        Returns:
+            tuple: Maximum HKL values
+        """
+        if not self.is_initialized():
+            raise ValueError("Calculator not initialized")
+        a, b, c, alpha, beta, gamma = self.lab.get_lattice_parameters()
+        k_magnitude = self.get_k_magnitude(tth)
+        h_max = k_magnitude / (2 * np.pi / a)
+        k_max = k_magnitude / (2 * np.pi / b)
+        l_max = k_magnitude / (2 * np.pi / c)
+        if alpha != 90.0 or beta != 90.0 or gamma != 90.0:
+            success = False 
+            message = "The crystal is not orthorhombic,\nthe accesible area is just approximate."
+        else: 
+            success = True
+            message = None
+        return {
+            "h_max": h_max,
+            "k_max": k_max,
+            "l_max": l_max,
+            "success": success,
+            "message": message,
+        }
+        
 
     def get_real_space_vectors(self):
         """Get the real space vectors.

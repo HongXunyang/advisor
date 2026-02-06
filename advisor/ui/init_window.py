@@ -180,8 +180,8 @@ class InitWindow(QWidget):
         # Add energy group to main layout at (0,1)
         layout.addWidget(energy_group, 0, 1)
 
-        # Group box for Euler angles
-        euler_group = QGroupBox("Euler Angles")
+        # Group box for Sample orientation Euler angles
+        euler_group = QGroupBox("Sample Orientation (Euler Angles)")
         euler_layout = QFormLayout(euler_group)
 
         self.roll_input = QDoubleSpinBox()
@@ -211,10 +211,10 @@ class InitWindow(QWidget):
         self.yaw_input.valueChanged.connect(self.update_visualization)
         euler_layout.addRow("Yaw:", self.yaw_input)
 
-        # Add "Import from Diffraction Test" button
+        # Add "Set UB Matrix (Import from Diffraction Tests)" button
         self.import_orientation_btn = QPushButton("Set UB Matrix")
         self.import_orientation_btn.setToolTip(
-            "Calculate Euler angles from known diffraction measurements"
+            "Calculate Sample orientation (Euler angles) from known diffraction measurements. E.g. Two Braggs (002) (101) peaks are found at certain angles (tth, theta, phi, chi), at certain energy, the sample orientation can be determined."
         )
         self.import_orientation_btn.clicked.connect(self.open_diffraction_test_dialog)
         euler_layout.addRow(self.import_orientation_btn)
@@ -301,7 +301,7 @@ class InitWindow(QWidget):
         if dialog.exec_() == DiffractionTestDialog.Accepted:
             result = dialog.get_result()
             if result is not None:
-                # Apply the calculated Euler angles
+                # Apply the calculated Sample orientation Euler angles
                 self.roll_input.setValue(result["roll"])
                 self.pitch_input.setValue(result["pitch"])
                 self.yaw_input.setValue(result["yaw"])

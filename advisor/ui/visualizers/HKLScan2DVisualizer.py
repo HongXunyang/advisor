@@ -1,6 +1,8 @@
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 import numpy as np
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from matplotlib.patches import Ellipse
 
 
 class HKLScan2DVisualizer(FigureCanvas):
@@ -222,3 +224,36 @@ class HKLScan2DVisualizer(FigureCanvas):
         except Exception as e:
             print(f"Error in _plot_trajectory_only: {e}")
             return False
+
+    def plot_accessible_area(self, plane_type, h_max, k_max, l_max, message=None):
+        """ plot an ellipse in the plane to represent the accessible area in k-space.
+        
+        Args:
+            plane_type: "HK", "HL", or "KL"
+            h_max: maximum value of the h-axis
+            k_max: maximum value of the k-axis
+            l_max: maximum value of the l-axis
+        """
+        # use matplotlib patches to plot an ellipse in the plane to represent the accessible area in
+        # k-space.
+
+        if plane_type == "HK":
+            x_max = h_max
+            y_max = k_max
+        elif plane_type == "HL":
+            x_max = h_max
+            y_max = l_max
+        elif plane_type == "KL":
+            x_max = k_max
+            y_max = l_max
+
+        ellipse = Ellipse(xy=(0, 0), width=2*x_max, height=2*y_max, angle=0, color='#80e8be', alpha=0.35, edgecolor='none')
+        self.axes.add_patch(ellipse)
+        
+        # put a gray text on the top left corner of the plot
+        if message is not None:
+            self.axes.text(0.02, 0.985, message, color='gray', fontsize=8, transform=self.axes.transAxes, va="top", alpha = 0.65)
+
+        self.axes.text(0,0.1,"accessible area", color='#52a38b', fontsize=8, ha="center")
+        self.draw()
+        return True

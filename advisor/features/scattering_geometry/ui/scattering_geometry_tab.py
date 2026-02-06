@@ -437,7 +437,7 @@ class ScatteringGeometryTab(TabInterface):
         """Update the HKL scan visualization with auto-detected ranges and results."""
         try:
             # Structure factor calculator not needed for trajectory-only visualization
-            
+
             # Use the provided scan results or the last stored results
             if scan_results is None:
                 scan_results = getattr(self.hkl_scan_visualizer, 'last_scan_results', None)
@@ -456,6 +456,15 @@ class ScatteringGeometryTab(TabInterface):
                 
                 # Visualize results (ranges will be auto-detected)
                 self.hkl_scan_visualizer.visualize_results(scan_results, plane_type)
+
+                # plot the accessible area in k-space
+                params = self.hkl_scan_controls.get_scan_parameters() 
+                tth = params["tth"]
+                accessible_area = self.calculator.get_max_hkl_values(tth)
+                h_max, k_max, l_max = accessible_area["h_max"], accessible_area["k_max"], accessible_area["l_max"]
+                success, message = accessible_area["success"], accessible_area["message"]
+                self.hkl_scan_visualizer.plot_accessible_area(plane_type, h_max, k_max, l_max, message)
+                print(f"Accessible area: h_max={h_max:.3f}, k_max={k_max:.3f}, l_max={l_max:.3f}, message={message}")
             else:
                 # No scan results yet, just clear the plot
                 self.hkl_scan_visualizer.clear_plot()
