@@ -1,10 +1,78 @@
 Appendix
 ========
 
-Scattering angles, momentum transfer HKL
+
+Reference frames:
+----------------
+
+There are three reference frames in this app:
+#. Lattice frame: the reference frame attached to the lattice. 
+#. Sample frame: the reference frame attached to the sample holder or the goniometer stage.
+#. Lab frame: the reference frame attached to the laboratory frame.
+
+In our app, the orientation of the lattice frame relative to the sample frame (sample holder or goniometer stage) is termed as the
+*sample orientation*. The rotation of the sample frame (goniometer stage) with respect to the lab
+frame is termed as the *sample rotation*. 
+
+The animation below shows the ordering of how the sample orientation (roll, pitch, yaw) and the
+sample rotation (θ, χ, φ) are applied. To simplify the concept, the animation shows the 2D
+projection. 
+
+.. image:: _static/reference_frame.gif
+   :width: 80%
+   :alt: Animation of the reference frame.
+   :class: with-border
+   :align: center
+
+More details about the orientation and the rotation are given below.
+
+Sample orientation:
+-------------------
+
+Sample orientation is the orientation of the underlying lattice relative to the
+sample holder or to the goniometer stage. The orientation is defined by three Euler angles: roll,
+pitch, and yaw in the ZYX convention. The setup of the lattice at zero orientation is shown below:
+
+.. image:: _static/lattice_arrangement.jpg
+   :width: 30%
+   :alt: Lattice arrangement at zero orientation.
+   :class: with-border
+   :align: center
+
+The first real-space lattice vector :math:`\mathbf{a}` is along the x-axis; The second real-space
+lattice vector :math:`\mathbf{b}` is on the x-y plane, forming an angle of :math:`\gamma` with the
+x-axis (or the vector :math:`\mathbf{a}`); The third real-space lattice vector
+:math:`\mathbf{c}` is out-of-plane, forming an angle of :math:`\alpha` with :math:`\mathbf{b}`,
+and an angle of :math:`\beta` with the vector :math:`\mathbf{a}`.
+
+In a more general case, when yaw, pitch, and roll are not zero, the three vectors
+:math:`\mathbf{a}`, :math:`\mathbf{b}`, and :math:`\mathbf{c}` need to be reoriented:
+
+#. **Yaw**: rotation about the original z-axis;
+#. **Pitch**: rotation about the new y-axis after the yaw rotation;
+#. **Roll**: rotation about the new x-axis after the yaw and the pitch rotation.
+
+The total rotation matrix is given by:
+
+.. math::
+   R_{\text{orientation}} = R_{\text{yaw}} R_{\text{pitch}} R_{\text{roll}}
+
+where :math:`R_{\text{yaw}}`, :math:`R_{\text{pitch}}`, and :math:`R_{\text{roll}}` are the rotation
+matrices for the yaw (z-axis), pitch (y-axis), and roll (x-axis) rotations, respectively. See the
+video below for a visual demonstration.
+
+.. image:: _static/sample_orientation.gif
+   :width: 100%
+   :alt: Video of the sample orientation.
+   :class: with-border
+   :align: center
+
+
+Sample rotation, 
 -----------------------
 
-**Scattering angles**:
+In this app, the sample rotation is defined as the rotation of the goniometer
+stage. 
 
 .. image:: _static/angles.png
    :width: 80%
@@ -13,22 +81,22 @@ Scattering angles, momentum transfer HKL
    :align: center
 
 
+#. **θ** — primary/base rotation; rotation about the z-axis of the lab frame.
+#. **χ** — secondary/tilt rotation; rotation about the new y-axis after the θ rotation.
+#. **φ** — tertiary/sample azimuth; rotation about the new x-axis after the θ and χ rotations.
 
-#. **tth (2θ)** — the scattering angle between the incoming and outgoing beam.
-#. **θ** — primary/base rotation; axis fixed in the laboratory frame.
-#. **χ** — secondary/tilt rotation; stage is mounted on top of the θ stage, so the axis depends on θ.
-#. **φ** — tertiary/sample azimuth; stage is mounted on top of χ, so the axis depends on θ then χ.
-
-Rotations are applied in stack order (θ → χ → φ):
+The total rotation matrix is given by:
 
 .. math::
 
-   R_{\text{total}} = R_{\theta}\, R_{\chi}\,  R_{\phi}
+   R_{\text{rotation}} = R_{\theta}\, R_{\chi}\,  R_{\phi}
 
 
 
 
-**Momentum transfer and HKL**:
+
+Momentum transfer HKL
+----------------------
 
 .. image:: _static/hkl_rep.png
    :width: 60%
@@ -50,7 +118,7 @@ Given real-space vectors :math:`\mathbf{a}, \mathbf{b}, \mathbf{c}` and volume :
    \mathbf{b}^* = 2\pi\frac{\mathbf{c}\times\mathbf{a}}{V},\quad
    \mathbf{c}^* = 2\pi\frac{\mathbf{a}\times\mathbf{b}}{V}
 
-From a Cartesian :math:`\mathbf{Q}`, the r.l.u. are:
+The equations below show how to convert the momentum transfer vector :math:`\mathbf{Q}` to the HKL coordinates:
 
 .. math::
 

@@ -65,7 +65,10 @@
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Appendix</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#scattering-angles-momentum-transfer-hkl">Scattering angles, momentum transfer HKL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reference-frames">Reference frames:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sample-orientation">Sample orientation:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sample-rotation">Sample rotation,</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#momentum-transfer-hkl">Momentum transfer HKL</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#structure-factor-planes-u-v-center">Structure factor planes (U/V/Center)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#quick-links">Quick links</a></li>
 </ul>
@@ -98,21 +101,67 @@
              
   <section id="appendix">
 <h1>Appendix<a class="headerlink" href="#appendix" title="Link to this heading"></a></h1>
-<section id="scattering-angles-momentum-transfer-hkl">
-<h2>Scattering angles, momentum transfer HKL<a class="headerlink" href="#scattering-angles-momentum-transfer-hkl" title="Link to this heading"></a></h2>
-<p><strong>Scattering angles</strong>:</p>
+<section id="reference-frames">
+<h2>Reference frames:<a class="headerlink" href="#reference-frames" title="Link to this heading"></a></h2>
+<p>There are three reference frames in this app:
+#. Lattice frame: the reference frame attached to the lattice.
+#. Sample frame: the reference frame attached to the sample holder or the goniometer stage.
+#. Lab frame: the reference frame attached to the laboratory frame.</p>
+<p>In our app, the orientation of the lattice frame relative to the sample frame (sample holder or goniometer stage) is termed as the
+<em>sample orientation</em>. The rotation of the sample frame (goniometer stage) with respect to the lab
+frame is termed as the <em>sample rotation</em>.</p>
+<p>The animation below shows the ordering of how the sample orientation (roll, pitch, yaw) and the
+sample rotation (θ, χ, φ) are applied. To simplify the concept, the animation shows the 2D
+projection.</p>
+<a class="with-border reference internal image-reference" href="_images/reference_frame.gif"><img alt="Animation of the reference frame." class="with-border align-center" src="_images/reference_frame.gif" style="width: 80%;" />
+</a>
+<p>More details about the orientation and the rotation are given below.</p>
+</section>
+<section id="sample-orientation">
+<h2>Sample orientation:<a class="headerlink" href="#sample-orientation" title="Link to this heading"></a></h2>
+<p>Sample orientation is the orientation of the underlying lattice relative to the
+sample holder or to the goniometer stage. The orientation is defined by three Euler angles: roll,
+pitch, and yaw in the ZYX convention. The setup of the lattice at zero orientation is shown below:</p>
+<a class="with-border reference internal image-reference" href="_images/lattice_arrangement.jpg"><img alt="Lattice arrangement at zero orientation." class="with-border align-center" src="_images/lattice_arrangement.jpg" style="width: 30%;" />
+</a>
+<p>The first real-space lattice vector <span class="math notranslate nohighlight">\(\mathbf{a}\)</span> is along the x-axis; The second real-space
+lattice vector <span class="math notranslate nohighlight">\(\mathbf{b}\)</span> is on the x-y plane, forming an angle of <span class="math notranslate nohighlight">\(\gamma\)</span> with the
+x-axis (or the vector <span class="math notranslate nohighlight">\(\mathbf{a}\)</span>); The third real-space lattice vector
+<span class="math notranslate nohighlight">\(\mathbf{c}\)</span> is out-of-plane, forming an angle of <span class="math notranslate nohighlight">\(\alpha\)</span> with <span class="math notranslate nohighlight">\(\mathbf{b}\)</span>,
+and an angle of <span class="math notranslate nohighlight">\(\beta\)</span> with the vector <span class="math notranslate nohighlight">\(\mathbf{a}\)</span>.</p>
+<p>In a more general case, when yaw, pitch, and roll are not zero, the three vectors
+<span class="math notranslate nohighlight">\(\mathbf{a}\)</span>, <span class="math notranslate nohighlight">\(\mathbf{b}\)</span>, and <span class="math notranslate nohighlight">\(\mathbf{c}\)</span> need to be reoriented:</p>
+<ol class="arabic simple">
+<li><p><strong>Yaw</strong>: rotation about the original z-axis;</p></li>
+<li><p><strong>Pitch</strong>: rotation about the new y-axis after the yaw rotation;</p></li>
+<li><p><strong>Roll</strong>: rotation about the new x-axis after the yaw and the pitch rotation.</p></li>
+</ol>
+<p>The total rotation matrix is given by:</p>
+<div class="math notranslate nohighlight">
+\[R_{\text{orientation}} = R_{\text{yaw}} R_{\text{pitch}} R_{\text{roll}}\]</div>
+<p>where <span class="math notranslate nohighlight">\(R_{\text{yaw}}\)</span>, <span class="math notranslate nohighlight">\(R_{\text{pitch}}\)</span>, and <span class="math notranslate nohighlight">\(R_{\text{roll}}\)</span> are the rotation
+matrices for the yaw (z-axis), pitch (y-axis), and roll (x-axis) rotations, respectively. See the
+video below for a visual demonstration.</p>
+<a class="with-border reference internal image-reference" href="_images/sample_orientation.gif"><img alt="Video of the sample orientation." class="with-border align-center" src="_images/sample_orientation.gif" style="width: 100%;" />
+</a>
+</section>
+<section id="sample-rotation">
+<h2>Sample rotation,<a class="headerlink" href="#sample-rotation" title="Link to this heading"></a></h2>
+<p>In this app, the sample rotation is defined as the rotation of the goniometer
+stage.</p>
 <a class="with-border reference internal image-reference" href="_images/angles.png"><img alt="Screenshot of the rotation order." class="with-border align-center" src="_images/angles.png" style="width: 80%;" />
 </a>
 <ol class="arabic simple">
-<li><p><strong>tth (2θ)</strong> — the scattering angle between the incoming and outgoing beam.</p></li>
-<li><p><strong>θ</strong> — primary/base rotation; axis fixed in the laboratory frame.</p></li>
-<li><p><strong>χ</strong> — secondary/tilt rotation; stage is mounted on top of the θ stage, so the axis depends on θ.</p></li>
-<li><p><strong>φ</strong> — tertiary/sample azimuth; stage is mounted on top of χ, so the axis depends on θ then χ.</p></li>
+<li><p><strong>θ</strong> — primary/base rotation; rotation about the z-axis of the lab frame.</p></li>
+<li><p><strong>χ</strong> — secondary/tilt rotation; rotation about the new y-axis after the θ rotation.</p></li>
+<li><p><strong>φ</strong> — tertiary/sample azimuth; rotation about the new x-axis after the θ and χ rotations.</p></li>
 </ol>
-<p>Rotations are applied in stack order (θ → χ → φ):</p>
+<p>The total rotation matrix is given by:</p>
 <div class="math notranslate nohighlight">
-\[R_{\text{total}} = R_{\theta}\, R_{\chi}\,  R_{\phi}\]</div>
-<p><strong>Momentum transfer and HKL</strong>:</p>
+\[R_{\text{rotation}} = R_{\theta}\, R_{\chi}\,  R_{\phi}\]</div>
+</section>
+<section id="momentum-transfer-hkl">
+<h2>Momentum transfer HKL<a class="headerlink" href="#momentum-transfer-hkl" title="Link to this heading"></a></h2>
 <a class="with-border reference internal image-reference" href="_images/hkl_rep.png"><img alt="Screenshot of the HKL representation." class="with-border align-center" src="_images/hkl_rep.png" style="width: 60%;" />
 </a>
 <p><strong>H, K, L (r.l.u.)</strong> — components of the momentum transfer <span class="math notranslate nohighlight">\(\mathbf{Q}\)</span> in the reciprocal lattice basis.</p>
@@ -123,7 +172,7 @@
 \[\mathbf{a}^* = 2\pi\frac{\mathbf{b}\times\mathbf{c}}{V},\quad
 \mathbf{b}^* = 2\pi\frac{\mathbf{c}\times\mathbf{a}}{V},\quad
 \mathbf{c}^* = 2\pi\frac{\mathbf{a}\times\mathbf{b}}{V}\]</div>
-<p>From a Cartesian <span class="math notranslate nohighlight">\(\mathbf{Q}\)</span>, the r.l.u. are:</p>
+<p>The equations below show how to convert the momentum transfer vector <span class="math notranslate nohighlight">\(\mathbf{Q}\)</span> to the HKL coordinates:</p>
 <div class="math notranslate nohighlight">
 \[H=\frac{\mathbf{Q}\cdot\mathbf{a}^*}{2\pi},\quad
 K=\frac{\mathbf{Q}\cdot\mathbf{b}^*}{2\pi},\quad

@@ -65,7 +65,10 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="appendix.html">Appendix</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="appendix.html#scattering-angles-momentum-transfer-hkl">Scattering angles, momentum transfer HKL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix.html#reference-frames">Reference frames:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix.html#sample-orientation">Sample orientation:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix.html#sample-rotation">Sample rotation,</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix.html#momentum-transfer-hkl">Momentum transfer HKL</a></li>
 <li class="toctree-l2"><a class="reference internal" href="appendix.html#structure-factor-planes-u-v-center">Structure factor planes (U/V/Center)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="appendix.html#quick-links">Quick links</a></li>
 </ul>
@@ -105,9 +108,18 @@ For definitions of scattering angles, and momentum transfer HKL, see the <a clas
 <ul class="simple">
 <li><p>Enter lattice constants (a, b, c) and angles (α, β, γ). (Optionally) You can also drop in a CIF file to auto-fill lattice parameters and preview the unit cell.</p></li>
 <li><p>Enter beam energy (eV); wavelength (λ) and wave vector magnitude (<a href="#id1"><span class="problematic" id="id2">|k|</span></a>) update automatically.</p></li>
-<li><p>Euler angles (roll, pitch, yaw) update the orientation of the sample relative to the scattering plane.</p></li>
+<li><p>Euler angles (roll, pitch, yaw) update the orientation of the lattice/sample relative to the goniometer.</p></li>
 <li><p>Click <strong>Initialize</strong> to pass parameters to all tabs and open the main interface.</p></li>
 </ul>
+<p><strong>Import Orientation from Diffraction Tests:</strong>
+If you have diffraction test data (known HKL values with measured angles), you can automatically determine the Euler angles:</p>
+<ol class="arabic simple">
+<li><p>Click <strong>Import from Diffraction Test</strong> in the Euler Angles panel.</p></li>
+<li><p>Enter your diffraction measurements (H, K, L, energy, 2θ, θ, φ, χ) in the table.</p></li>
+<li><p>Click <strong>Calculate Orientation</strong> to find the optimal Euler angles that fit your data.</p></li>
+<li><p>Click <strong>Apply and Close</strong> to populate the roll, pitch, yaw fields.</p></li>
+</ol>
+<p>The algorithm uses least-squares optimization with multiple random restarts to find the best orientation that minimizes the difference between calculated and measured HKL values.</p>
 <img alt="Screenshot of the initialization window with callouts." class="with-border" src="_static/init.jpg" />
 </section>
 <hr class="docutils" />
