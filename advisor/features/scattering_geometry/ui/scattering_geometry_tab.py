@@ -464,7 +464,6 @@ class ScatteringGeometryTab(TabInterface):
                 h_max, k_max, l_max = accessible_area["h_max"], accessible_area["k_max"], accessible_area["l_max"]
                 success, message = accessible_area["success"], accessible_area["message"]
                 self.hkl_scan_visualizer.plot_accessible_area(plane_type, h_max, k_max, l_max, message)
-                print(f"Accessible area: h_max={h_max:.3f}, k_max={k_max:.3f}, l_max={l_max:.3f}, message={message}")
             else:
                 # No scan results yet, just clear the plot
                 self.hkl_scan_visualizer.clear_plot()

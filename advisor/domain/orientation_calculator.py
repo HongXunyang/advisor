@@ -14,11 +14,10 @@ from advisor.domain.core import Lab
 
 
 class OrientationCalculator:
-    """Lightweight calculator for orientation fitting.
+    """Lightweight version of Brillouincalculator for orientation fitting (Set UB Matrix calculation).
 
-    This class provides only the methods needed for fitting crystal orientation
-    from diffraction test data. It uses the Lab class directly and avoids
-    dependencies on feature-specific modules.
+    This class provides only the methods needed for fitting crystal orientation (UB matrix)
+    from diffraction data. 
     """
 
     # Physical constants
