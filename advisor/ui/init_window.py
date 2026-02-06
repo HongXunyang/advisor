@@ -212,7 +212,7 @@ class InitWindow(QWidget):
         euler_layout.addRow("Yaw:", self.yaw_input)
 
         # Add "Import from Diffraction Test" button
-        self.import_orientation_btn = QPushButton("Import from UB Matrix Diffraction Tests")
+        self.import_orientation_btn = QPushButton("Set UB Matrix")
         self.import_orientation_btn.setToolTip(
             "Calculate Euler angles from known diffraction measurements"
         )
