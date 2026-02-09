@@ -79,6 +79,7 @@ class InitWindow(QWidget):
         self.unit_converter = UnitConverter()
         self._lattice_locked = False
         self._accepted_cif_path = None
+        self._ub_data = None
         self.init_ui()
 
     def init_ui(self):
@@ -306,6 +307,8 @@ class InitWindow(QWidget):
                 self.pitch_input.setValue(result["pitch"])
                 self.yaw_input.setValue(result["yaw"])
                 # update_visualization will be triggered by valueChanged signals
+        
+        self._ub_data = result["ub_data"]
 
     def set_lattice_inputs_enabled(self, enabled: bool):
         """Enable/disable lattice parameter inputs (a,b,c,alpha,beta,gamma)."""
@@ -507,12 +510,15 @@ class InitWindow(QWidget):
                 "beta": self.beta_input.value(),
                 "gamma": self.gamma_input.value(),
                 "energy": self.energy_input.value(),
+                "wavevector": self.wavevector_input.value(),
+                "wavelength": self.wavelength_input.value(),
                 "cif_file": (
                     self.file_path_input.text() if self.file_path_input.text() else None
                 ),
                 "roll": self.roll_input.value(),
                 "pitch": self.pitch_input.value(),
                 "yaw": self.yaw_input.value(),
+                "ub_data": self._ub_data, # angles and HKL that were used to calculate the orientation from diffraction tests
             }
 
             self.initialized.emit(params)

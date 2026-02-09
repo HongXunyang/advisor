@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Dialog for importing orientation from diffraction test data."""
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QDialog, QDoubleSpinBox, QFormLayout, QGroupBox,
                              QHBoxLayout, QHeaderView, QLabel, QMessageBox,
                              QPushButton, QTableWidget, QTableWidgetItem,
@@ -17,7 +17,7 @@ class DiffractionTestDialog(QDialog):
     This dialog allows users to input multiple diffraction tests (H, K, L, energy,
     tth, theta, phi, chi) and calculates the optimal Euler angles (roll, pitch, yaw)
     that best fit the data.
-    """
+    """ 
 
     def __init__(self, lattice_params: dict, parent=None):
         """Initialize the dialog.
@@ -246,6 +246,7 @@ class DiffractionTestDialog(QDialog):
             "roll": result["roll"],
             "pitch": result["pitch"],
             "yaw": result["yaw"],
+            "ub_data": tests, # angles and HKL that were used to calculate the orientation
         }
 
         # Show detailed errors if available
