@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-from PyQt5.QtWidgets import (
-    QWidget,
-    QGridLayout,
-    QFormLayout,
-    QLabel,
-    QPushButton,
-    QGroupBox,
-    QHBoxLayout,
-    QVBoxLayout,
-    QSpinBox,
-    QLineEdit,
-)
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtWidgets import (QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
+                             QLabel, QLineEdit, QPushButton, QSpinBox,
+                             QVBoxLayout, QWidget)
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-from advisor.ui.visualizers import StructureFactorVisualizer3D, StructureFactorVisualizer2D
+from advisor.ui.visualizers import (StructureFactorVisualizer2D,
+                                    StructureFactorVisualizer3D)
+
 from .hkl_plane_components import EnergySpinBox
 
 
@@ -83,11 +77,11 @@ class CustomizedPlaneControls(QWidget):
         
         self.u_range_spin = QSpinBox()
         self.u_range_spin.setRange(0, 35)
-        self.u_range_spin.setValue(3)
+        self.u_range_spin.setValue(4)
         
         self.v_range_spin = QSpinBox()
         self.v_range_spin.setRange(0, 35)
-        self.v_range_spin.setValue(3)
+        self.v_range_spin.setValue(4)
         
         ranges_layout.addWidget(QLabel("U range"))
         ranges_layout.addWidget(self.u_range_spin)
