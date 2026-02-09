@@ -128,6 +128,40 @@ class StructureFactorVisualizer2D(FigureCanvas):
         except Exception:
             return False
 
+    def overlay_inaccessible_points(self, uv_points):
+        """Overlay red dots on the current axes for inaccessible diffraction points.
+
+        This does NOT clear the existing plot; it adds markers on top.
+
+        Args:
+            uv_points: list of dicts with keys {'u', 'v', ...} for each
+                       inaccessible point.
+        """
+        try:
+            if not uv_points:
+                return
+            u = [p['u'] for p in uv_points]
+            v = [p['v'] for p in uv_points]
+            self.axes.scatter(
+                u, v,
+                c='red', s=60, marker='x', linewidths=2,
+                zorder=-10, label='Inaccessible',
+            )
+            self.draw()
+        except Exception:
+            pass
+
+    def clear_inaccessible_overlay(self):
+        """Remove any previously drawn inaccessible-point overlay.
+
+        This is done by redrawing the full 2D plot (caller should invoke
+        ``visualize_uv_plane_points`` again before adding a new overlay).
+        """
+        # The simplest approach: let the caller re-draw the base plot and then
+        # call overlay_inaccessible_points again.  This method is kept as a
+        # semantic placeholder so callers know they should refresh.
+        pass
+
     def visualize_plane(
         self,
         x_values,

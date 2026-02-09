@@ -22,7 +22,6 @@ class CustomizedPlaneControls(QWidget):
     """Control panel for customized plane visualization with vector inputs."""
     
     initializeClicked = pyqtSignal()
-    updatePlotsClicked = pyqtSignal()
     parametersChanged = pyqtSignal()  # Emitted when any parameter changes
     
     def __init__(self, parent=None):
@@ -89,25 +88,15 @@ class CustomizedPlaneControls(QWidget):
         ranges_layout.addWidget(self.v_range_spin)
         config_layout.addRow("", ranges_row)
         
-        # Initialize button and status
-        self.init_btn = QPushButton("Initialize Calculator")
+        # Calculate Structure Factor button and status
+        self.init_btn = QPushButton("Calculate Structure Factor")
         self.init_btn.clicked.connect(self.initializeClicked.emit)
         
         self.status_label = QLabel("Status: Provide CIF in initialization window, then initialize")
         self.status_label.setStyleSheet("color: orange; font-weight: bold;")
         config_layout.addRow("", self.status_label)
         
-        # Update button (kept for manual refresh if needed)
-        self.update_plane_btn = QPushButton("Update Plane & Plots")
-        self.update_plane_btn.clicked.connect(self.updatePlotsClicked.emit)
-        
-        # Put init and update button on the same row
-        buttons_row = QWidget()
-        buttons_layout = QHBoxLayout(buttons_row)
-        buttons_layout.setContentsMargins(0, 0, 0, 0)
-        buttons_layout.addWidget(self.init_btn)
-        buttons_layout.addWidget(self.update_plane_btn)
-        config_layout.addRow("", buttons_row)
+        config_layout.addRow("", self.init_btn)
         
         layout.addWidget(config_group)
         
@@ -165,6 +154,213 @@ class CustomizedPlaneControls(QWidget):
     def get_ranges(self):
         """Get u and v ranges."""
         return self.u_range_spin.value(), self.v_range_spin.value()
+
+
+class AccessibleRegionControls(QWidget):
+    """Control panel for finding accessible diffraction region given angle constraints."""
+
+    findAccessibleClicked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.init_ui()
+
+    def init_ui(self):
+        """Initialize the accessible region control panel UI."""
+        layout = QVBoxLayout(self)
+
+        group = QGroupBox("Accessible Region")
+        form = QFormLayout(group)
+
+        # --- tth range ---
+        tth_row = QWidget()
+        tth_layout = QHBoxLayout(tth_row)
+        tth_layout.setContentsMargins(0, 0, 0, 0)
+        self.tth_min = QDoubleSpinBox()
+        self.tth_min.setRange(0.0, 180.0)
+        self.tth_min.setValue(0.0)
+        self.tth_min.setSuffix(" °")
+        self.tth_max = QDoubleSpinBox()
+        self.tth_max.setRange(0.0, 180.0)
+        self.tth_max.setValue(180.0)
+        self.tth_max.setSuffix(" °")
+        tth_layout.addWidget(QLabel("min"))
+        tth_layout.addWidget(self.tth_min)
+        tth_layout.addWidget(QLabel("max"))
+        tth_layout.addWidget(self.tth_max)
+        form.addRow("2θ range:", tth_row)
+
+        # --- theta range ---
+        theta_row = QWidget()
+        theta_layout = QHBoxLayout(theta_row)
+        theta_layout.setContentsMargins(0, 0, 0, 0)
+        self.theta_min = QDoubleSpinBox()
+        self.theta_min.setRange(-180.0, 180.0)
+        self.theta_min.setValue(0.0)
+        self.theta_min.setSuffix(" °")
+        self.theta_max = QDoubleSpinBox()
+        self.theta_max.setRange(-180.0, 180.0)
+        self.theta_max.setValue(180.0)
+        self.theta_max.setSuffix(" °")
+        theta_layout.addWidget(QLabel("min"))
+        theta_layout.addWidget(self.theta_min)
+        theta_layout.addWidget(QLabel("max"))
+        theta_layout.addWidget(self.theta_max)
+        form.addRow("θ range:", theta_row)
+
+        # --- Fix chi / Fix phi toggle ---
+        angle_sel = QWidget()
+        angle_sel_layout = QHBoxLayout(angle_sel)
+        angle_sel_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.fix_chi_btn = QPushButton("Fix χ")
+        self.fix_phi_btn = QPushButton("Fix φ")
+        for btn in (self.fix_chi_btn, self.fix_phi_btn):
+            btn.setCheckable(True)
+        self.fix_chi_btn.setChecked(True)
+
+        self.angle_button_group = QButtonGroup(self)
+        self.angle_button_group.addButton(self.fix_chi_btn)
+        self.angle_button_group.addButton(self.fix_phi_btn)
+
+        angle_sel_layout.addWidget(self.fix_chi_btn)
+        angle_sel_layout.addWidget(self.fix_phi_btn)
+        form.addRow("", angle_sel)
+
+        # --- Chi fixed value / Chi range ---
+        self.chi_fixed_widget = QWidget()
+        chi_fixed_layout = QFormLayout(self.chi_fixed_widget)
+        chi_fixed_layout.setContentsMargins(0, 0, 0, 0)
+        self.chi_input = QDoubleSpinBox()
+        self.chi_input.setRange(-180.0, 180.0)
+        self.chi_input.setValue(0.0)
+        self.chi_input.setSuffix(" °")
+        chi_fixed_layout.addRow("χ:", self.chi_input)
+
+        self.chi_range_widget = QWidget()
+        chi_range_layout = QHBoxLayout(self.chi_range_widget)
+        chi_range_layout.setContentsMargins(0, 0, 0, 0)
+        self.chi_range_min = QDoubleSpinBox()
+        self.chi_range_min.setRange(-180.0, 180.0)
+        self.chi_range_min.setValue(-180.0)
+        self.chi_range_min.setSuffix(" °")
+        self.chi_range_max = QDoubleSpinBox()
+        self.chi_range_max.setRange(-180.0, 180.0)
+        self.chi_range_max.setValue(180.0)
+        self.chi_range_max.setSuffix(" °")
+        chi_range_layout.addWidget(QLabel("χ min"))
+        chi_range_layout.addWidget(self.chi_range_min)
+        chi_range_layout.addWidget(QLabel("max"))
+        chi_range_layout.addWidget(self.chi_range_max)
+
+        # --- Phi fixed value / Phi range ---
+        self.phi_fixed_widget = QWidget()
+        phi_fixed_layout = QFormLayout(self.phi_fixed_widget)
+        phi_fixed_layout.setContentsMargins(0, 0, 0, 0)
+        self.phi_input = QDoubleSpinBox()
+        self.phi_input.setRange(-180.0, 180.0)
+        self.phi_input.setValue(0.0)
+        self.phi_input.setSuffix(" °")
+        phi_fixed_layout.addRow("φ:", self.phi_input)
+
+        self.phi_range_widget = QWidget()
+        phi_range_layout = QHBoxLayout(self.phi_range_widget)
+        phi_range_layout.setContentsMargins(0, 0, 0, 0)
+        self.phi_range_min = QDoubleSpinBox()
+        self.phi_range_min.setRange(-180.0, 180.0)
+        self.phi_range_min.setValue(-180.0)
+        self.phi_range_min.setSuffix(" °")
+        self.phi_range_max = QDoubleSpinBox()
+        self.phi_range_max.setRange(-180.0, 180.0)
+        self.phi_range_max.setValue(180.0)
+        self.phi_range_max.setSuffix(" °")
+        phi_range_layout.addWidget(QLabel("φ min"))
+        phi_range_layout.addWidget(self.phi_range_min)
+        phi_range_layout.addWidget(QLabel("max"))
+        phi_range_layout.addWidget(self.phi_range_max)
+
+        # Container for the angle-dependent rows
+        angle_values = QWidget()
+        angle_values_layout = QVBoxLayout(angle_values)
+        angle_values_layout.setContentsMargins(0, 0, 0, 0)
+        angle_values_layout.addWidget(self.chi_fixed_widget)
+        angle_values_layout.addWidget(self.chi_range_widget)
+        angle_values_layout.addWidget(self.phi_fixed_widget)
+        angle_values_layout.addWidget(self.phi_range_widget)
+        form.addRow("", angle_values)
+
+        # Find button
+        self.find_btn = QPushButton("Find Accessible Region")
+        self.find_btn.clicked.connect(self.findAccessibleClicked.emit)
+        form.addRow("", self.find_btn)
+
+        layout.addWidget(group)
+
+        # Connect toggle buttons
+        self.fix_chi_btn.clicked.connect(lambda: self._set_active_fixed_angle("chi"))
+        self.fix_phi_btn.clicked.connect(lambda: self._set_active_fixed_angle("phi"))
+
+        # Initialize UI state
+        self._set_active_fixed_angle("chi")
+
+    def _set_active_fixed_angle(self, angle: str):
+        """Update visibility and button styles based on fixed angle selection."""
+        is_chi = angle == "chi"
+
+        # Update button styles
+        for name, btn in [("chi", self.fix_chi_btn), ("phi", self.fix_phi_btn)]:
+            if name == angle:
+                btn.setChecked(True)
+                btn.setProperty("class", "activeToggle")
+            else:
+                btn.setChecked(False)
+                btn.setProperty("class", "inactiveToggle")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+        # Fix chi → show chi single input, phi range
+        self.chi_fixed_widget.setVisible(is_chi)
+        self.phi_range_widget.setVisible(is_chi)
+        # Fix phi → show phi single input, chi range
+        self.phi_fixed_widget.setVisible(not is_chi)
+        self.chi_range_widget.setVisible(not is_chi)
+
+    def get_parameters(self):
+        """Return the current accessible region parameters.
+
+        Returns:
+            dict with keys: tth_min, tth_max, theta_min, theta_max,
+                fixed_angle_name, fixed_angle_value,
+                chi_min, chi_max, phi_min, phi_max
+        """
+        is_chi_fixed = self.fix_chi_btn.isChecked()
+        if is_chi_fixed:
+            fixed_angle_name = "chi"
+            fixed_angle_value = self.chi_input.value()
+            chi_min = self.chi_input.value()
+            chi_max = self.chi_input.value()
+            phi_min = self.phi_range_min.value()
+            phi_max = self.phi_range_max.value()
+        else:
+            fixed_angle_name = "phi"
+            fixed_angle_value = self.phi_input.value()
+            phi_min = self.phi_input.value()
+            phi_max = self.phi_input.value()
+            chi_min = self.chi_range_min.value()
+            chi_max = self.chi_range_max.value()
+
+        return {
+            "tth_min": self.tth_min.value(),
+            "tth_max": self.tth_max.value(),
+            "theta_min": self.theta_min.value(),
+            "theta_max": self.theta_max.value(),
+            "fixed_angle_name": fixed_angle_name,
+            "fixed_angle_value": fixed_angle_value,
+            "chi_min": chi_min,
+            "chi_max": chi_max,
+            "phi_min": phi_min,
+            "phi_max": phi_max,
+        }
 
 
 class CustomizedPlane3DWidget(QWidget):
@@ -241,15 +437,19 @@ class CustomizedPlaneWidget(QWidget):
         """Initialize the complete widget."""
         main_layout = QGridLayout(self)
         
-        # Left panel: configuration
+        # Left panel: configuration (bottom-left)
         self.controls = CustomizedPlaneControls()
         main_layout.addWidget(self.controls, 1, 0)
         
-        # 2D plane visualizer below configuration for more space
+        # Right panel: accessible region controls (bottom-right)
+        self.accessible_controls = AccessibleRegionControls()
+        main_layout.addWidget(self.accessible_controls, 1, 1)
+        
+        # 2D plane visualizer (top-right)
         self.plane_2d = CustomizedPlane2DWidget()
         main_layout.addWidget(self.plane_2d, 0, 1, 1, 1)
         
-        # Right panel: 3D spanning both rows
+        # 3D visualizer (top-left)
         self.plane_3d = CustomizedPlane3DWidget()
         main_layout.addWidget(self.plane_3d, 0, 0)
 
@@ -259,10 +459,8 @@ class CustomizedPlaneWidget(QWidget):
         main_layout.setRowStretch(0, 3)     # More space for visualizers
         main_layout.setRowStretch(1, 1)     # Less space for controls        
 
-
         # Connect signals
         self.controls.parametersChanged.connect(self.update_plots)
-        self.controls.updatePlotsClicked.connect(self.update_plots)
         
     def set_calculator(self, calculator):
         """Set the calculator instance."""
@@ -284,47 +482,41 @@ class CustomizedPlaneWidget(QWidget):
     @pyqtSlot()
     def update_plots(self):
         """Update 3D scatter (all HKL) with a custom plane overlay and 2D uv plot."""
+        from advisor.features.structure_factor.domain import \
+            generate_hkl_points_on_plane
+
         try:
             # Always update the plane overlay for immediate feedback
             U, V, C = self.controls.get_custom_vectors()
-            u_max, v_max = self.controls.get_ranges()
-            
+            u_range, v_range = self.controls.get_ranges()
+
             # Symmetric parameter ranges around 0; apply center offset in HKL
-            u_min_param = -(u_max // 2)
-            u_max_param = u_max - (u_max // 2)
-            v_min_param = -(v_max // 2)
-            v_max_param = v_max - (v_max // 2)
-            
+            u_min_param = -(u_range // 2)
+            u_max_param = u_range - (u_range // 2)
+            v_min_param = -(v_range // 2)
+            v_max_param = v_range - (v_range // 2)
+
             # Update plane overlay
             self.plane_3d.set_custom_plane(
                 U, V, u_min_param, u_max_param, v_min_param, v_max_param, steps=2, center=C
             )
-            
+
             if not self.calculator or not self.calculator.is_initialized:
                 return
-                
+
             # 3D: plot all HKL points 0..5
             hkl_list = self._generate_hkl_cube(5)
             sf_values = self.calculator.calculate_structure_factors(hkl_list)
             self.plane_3d.visualize_structure_factors(hkl_list, sf_values)
-            
+
             # Re-apply plane overlay after replot
             self.plane_3d.set_custom_plane(
                 U, V, u_min_param, u_max_param, v_min_param, v_max_param, steps=2, center=C
             )
-            
-            # 2D: points on the plane using integer combinations of U and V in ranges
-            uv_points = []
-            hkl_points = []
-            # symmetric parameter ranges around 0 with given max steps, shifted by center
-            for u in range(u_min_param, u_max_param + 1):
-                for v in range(v_min_param, v_max_param + 1):
-                    H = C[0] + u * U[0] + v * V[0]
-                    K = C[1] + u * U[1] + v * V[1]
-                    L = C[2] + u * U[2] + v * V[2]
-                    uv_points.append({"u": u, "v": v, "H": H, "K": K, "L": L})
-                    hkl_points.append([H, K, L])
-                    
+
+            # 2D: points on the plane using shared domain function
+            uv_points, hkl_points = generate_hkl_points_on_plane(U, V, C, u_range, v_range)
+
             if len(hkl_points) > 0:
                 sf_plane = self.calculator.calculate_structure_factors(hkl_points)
                 # Reference value for sizing: use |F(0,0,0)| for consistency
@@ -341,7 +533,7 @@ class CustomizedPlaneWidget(QWidget):
                 self.plane_2d.visualize_uv_plane_points(
                     uv_points, np.abs(sf_plane), u_label, v_label, vector_center=C, value_max=value_max
                 )
-                
+
         except Exception as e:
             # Keep UI responsive
             print(f"Error updating customized plots: {e}")

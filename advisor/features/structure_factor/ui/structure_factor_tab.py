@@ -11,7 +11,10 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import pyqtSlot
 
-from advisor.features.structure_factor.domain import StructureFactorCalculator
+from advisor.features.structure_factor.domain import (
+    StructureFactorCalculator,
+    generate_hkl_points_on_plane,
+)
 from advisor.ui.tab_interface import TabInterface
 from advisor.ui.tips import Tips, set_tip
 from .components import (
@@ -60,6 +63,27 @@ class StructureFactorTab(TabInterface):
             self.hkl_plane_2d.clear_plots()
         if hasattr(self, 'customized_plane_widget'):
             self.customized_plane_widget.clear_plots()
+
+        # Auto-populate U, V, Center from ub_data if exactly 2 entries
+        ub_data = params.get("ub_data")
+        if ub_data and len(ub_data) == 2 and hasattr(self, 'customized_plane_widget'):
+            controls = self.customized_plane_widget.get_controls()
+            try:
+                d0 = ub_data[0]
+                d1 = ub_data[1]
+                h0, k0, l0 = d0["H"], d0["K"], d0["L"]
+                h1, k1, l1 = d1["H"], d1["K"], d1["L"]
+
+                controls.u_line.setText(f"{int(h0)},{int(k0)},{int(l0)}")
+                controls.v_line.setText(f"{int(h1)},{int(k1)},{int(l1)}")
+
+                # Center = mean of U and V, rounded to int
+                ch = int(round((h0 + h1) / 2.0))
+                ck = int(round((k0 + k1) / 2.0))
+                cl = int(round((l0 + l1) / 2.0))
+                controls.c_line.setText(f"{ch},{ck},{cl}")
+            except (KeyError, TypeError, ValueError):
+                pass  # keep defaults if ub_data is malformed
 
     def _set_tip(self, widget, name):
         """Set the tooltip and status tip for a widget by the name"""
@@ -119,6 +143,10 @@ class StructureFactorTab(TabInterface):
         # Connect initialize signal
         controls = self.customized_plane_widget.get_controls()
         controls.initializeClicked.connect(self.initialize_calculator_customized)
+
+        # Connect find accessible region signal
+        accessible_controls = self.customized_plane_widget.accessible_controls
+        accessible_controls.findAccessibleClicked.connect(self._find_accessible_region)
 
         # Add to tab widget
         self.tab_widget.addTab(self.customized_plane_widget, "Customized plane")
@@ -191,6 +219,102 @@ class StructureFactorTab(TabInterface):
             )
             controls = self.customized_plane_widget.get_controls()
             controls.set_status(f"Initialization failed - {str(e)}", "red")
+
+    @pyqtSlot()
+    def _find_accessible_region(self):
+        """Check accessibility of all HKL points on the customized plane.
+
+        For each integer diffraction spot on the plane, use BrillouinCalculator
+        to compute the scattering angles and verify that at least one solution
+        falls within the user-specified tth/theta/chi/phi ranges.  Points that
+        fail are overlaid as red markers on the 2D visualizer.
+        """
+        try:
+            brillouin = self.controller.brillouin_calculator
+            if not brillouin.is_initialized():
+                QMessageBox.warning(
+                    self,
+                    "Not Initialized",
+                    "The scattering geometry calculator is not yet initialized.\n"
+                    "Please make sure the global parameters have been set.",
+                )
+                return
+
+            # Gather plane parameters from controls
+            controls = self.customized_plane_widget.get_controls()
+            U, V, C = controls.get_custom_vectors()
+            u_range, v_range = controls.get_ranges()
+
+            # Gather accessible-region constraints
+            ar = self.customized_plane_widget.accessible_controls.get_parameters()
+            tth_min = ar["tth_min"]
+            tth_max = ar["tth_max"]
+            theta_min = ar["theta_min"]
+            theta_max = ar["theta_max"]
+            chi_min = ar["chi_min"]
+            chi_max = ar["chi_max"]
+            phi_min = ar["phi_min"]
+            phi_max = ar["phi_max"]
+            fixed_angle_name = ar["fixed_angle_name"]
+            fixed_angle_value = ar["fixed_angle_value"]
+
+            # Generate all HKL points on the plane
+            uv_points, hkl_points = generate_hkl_points_on_plane(
+                U, V, C, u_range, v_range
+            )
+
+            inaccessible = []
+
+            for pt, hkl in zip(uv_points, hkl_points):
+                H, K, L = hkl
+                try:
+                    result = brillouin.calculate_angles(
+                        H, K, L,
+                        fixed_angle=fixed_angle_value,
+                        fixed_angle_name=fixed_angle_name,
+                    )
+                except Exception:
+                    inaccessible.append(pt)
+                    continue
+
+                if not result.get("success", False):
+                    inaccessible.append(pt)
+                    continue
+
+                # Check if at least one solution is within the ranges
+                n_sol = result.get("number_of_solutions", 0)
+                any_ok = False
+                for i in range(n_sol):
+                    tth_val = result["tth"][i]
+                    theta_val = result["theta"][i]
+                    phi_val = result["phi"][i]
+                    chi_val = result["chi"][i]
+
+                    if (
+                        tth_min <= tth_val <= tth_max
+                        and theta_min <= theta_val <= theta_max
+                        and chi_min <= chi_val <= chi_max
+                        and phi_min <= phi_val <= phi_max
+                    ):
+                        any_ok = True
+                        break
+
+                if not any_ok:
+                    inaccessible.append(pt)
+
+            # First refresh the base 2D plot so previous overlay is cleared
+            self.customized_plane_widget.update_plots()
+
+            # Overlay inaccessible points on the 2D visualizer
+            visualizer_2d = self.customized_plane_widget.plane_2d.visualizer2d
+            visualizer_2d.overlay_inaccessible_points(inaccessible)
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to find accessible region:\n{str(e)}",
+            )
 
     @pyqtSlot(str)
     def _on_plane_changed(self, plane: str):

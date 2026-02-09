@@ -6,6 +6,7 @@ from .hkl_plane_components import (
 
 from .customized_plane_components import (
     CustomizedPlaneControls,
+    AccessibleRegionControls,
     CustomizedPlane3DWidget,
     CustomizedPlane2DWidget,
     CustomizedPlaneWidget,
