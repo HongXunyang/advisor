@@ -1,8 +1,9 @@
 """2D Structure Factor Visualizer for sliced HK/HL/KL planes"""
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 import numpy as np
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 
 class StructureFactorVisualizer2D(FigureCanvas):
@@ -145,7 +146,7 @@ class StructureFactorVisualizer2D(FigureCanvas):
             self.axes.scatter(
                 u, v,
                 c='red', s=60, marker='x', linewidths=2,
-                zorder=-10, label='Inaccessible',
+                zorder=10, label='Inaccessible',
             )
             self.draw()
         except Exception:

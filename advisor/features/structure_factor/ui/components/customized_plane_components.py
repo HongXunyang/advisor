@@ -543,3 +543,7 @@ class CustomizedPlaneWidget(QWidget):
         """Clear all plots."""
         self.plane_2d.clear_plot()
         self.plane_3d.clear_plot()
+
+    def get_energy_ev(self):
+        """Get the energy in eV."""
+        return self.controls.get_energy_ev()

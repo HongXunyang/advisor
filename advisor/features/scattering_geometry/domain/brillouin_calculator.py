@@ -49,6 +49,8 @@ class BrillouinCalculator:
         self.reciprocal_lattice = None
         self.visualizer = None
 
+        self._params = None
+
     def initialize(
         self,
         params: dict,
@@ -65,6 +67,7 @@ class BrillouinCalculator:
         Returns:
             bool: True if initialization was successful
         """
+        self._params = params
         roll = params.get("roll", 0.0)
         pitch = params.get("pitch", 0.0)
         yaw = params.get("yaw", 0.0)
@@ -105,7 +108,13 @@ class BrillouinCalculator:
             print(f"Error initializing calculator: {str(e)}")
             return False
 
-    def change_energy(self, energy):
+    def copy_itself(self):
+        """Copy the calculator itself."""
+        new_calculator = BrillouinCalculator()
+        new_calculator.initialize(self._params)
+        return new_calculator
+
+    def set_energy(self, energy):
         """Change the energy of the X-ray source, in eV"""
         self.energy = energy
         self.lambda_A = self.ev_to_lambda / self.energy

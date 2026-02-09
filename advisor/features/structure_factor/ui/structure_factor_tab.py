@@ -2,27 +2,18 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
 import os
+
 import numpy as np
-from PyQt5.QtWidgets import (
-    QGridLayout,
-    QTabWidget,
-    QWidget,
-    QMessageBox,
-)
 from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtWidgets import QGridLayout, QMessageBox, QTabWidget, QWidget
 
 from advisor.features.structure_factor.domain import (
-    StructureFactorCalculator,
-    generate_hkl_points_on_plane,
-)
+    StructureFactorCalculator, generate_hkl_points_on_plane)
 from advisor.ui.tab_interface import TabInterface
 from advisor.ui.tips import Tips, set_tip
-from .components import (
-    HKLPlaneControls,
-    HKLPlane3DWidget,
-    HKLPlane2DWidget,
-    CustomizedPlaneWidget,
-)
+
+from .components import (CustomizedPlaneWidget, HKLPlane2DWidget,
+                         HKLPlane3DWidget, HKLPlaneControls)
 
 
 class StructureFactorTab(TabInterface):
@@ -230,7 +221,10 @@ class StructureFactorTab(TabInterface):
         fail are overlaid as red markers on the 2D visualizer.
         """
         try:
-            brillouin = self.controller.brillouin_calculator
+            brillouin = self.controller.brillouin_calculator.copy_itself()
+            # change energy to input from confirguation
+            diffraction_energy = self.customized_plane_widget.get_energy_ev()
+            brillouin.set_energy(diffraction_energy)
             if not brillouin.is_initialized():
                 QMessageBox.warning(
                     self,
