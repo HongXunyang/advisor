@@ -158,9 +158,9 @@ class CustomizedPlaneControls(QWidget):
 
 
 class AccessibleRegionControls(QWidget):
-    """Control panel for finding accessible diffraction region given angle constraints."""
+    """Control panel for checking accessibility of diffraction points."""
 
-    findAccessibleClicked = pyqtSignal()
+    checkAccessibilityClicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -170,46 +170,10 @@ class AccessibleRegionControls(QWidget):
         """Initialize the accessible region control panel UI."""
         layout = QVBoxLayout(self)
 
-        group = QGroupBox("Accessible Region")
-        form = QFormLayout(group)
+        group = QGroupBox("Accessibility Check")
+        group_layout = QVBoxLayout(group)
 
-        # --- tth range ---
-        tth_row = QWidget()
-        tth_layout = QHBoxLayout(tth_row)
-        tth_layout.setContentsMargins(0, 0, 0, 0)
-        self.tth_min = QDoubleSpinBox()
-        self.tth_min.setRange(0.0, 180.0)
-        self.tth_min.setValue(0.0)
-        self.tth_min.setSuffix(" °")
-        self.tth_max = QDoubleSpinBox()
-        self.tth_max.setRange(0.0, 180.0)
-        self.tth_max.setValue(180.0)
-        self.tth_max.setSuffix(" °")
-        tth_layout.addWidget(QLabel("min"))
-        tth_layout.addWidget(self.tth_min)
-        tth_layout.addWidget(QLabel("max"))
-        tth_layout.addWidget(self.tth_max)
-        form.addRow("2θ range:", tth_row)
-
-        # --- theta range ---
-        theta_row = QWidget()
-        theta_layout = QHBoxLayout(theta_row)
-        theta_layout.setContentsMargins(0, 0, 0, 0)
-        self.theta_min = QDoubleSpinBox()
-        self.theta_min.setRange(-180.0, 180.0)
-        self.theta_min.setValue(0.0)
-        self.theta_min.setSuffix(" °")
-        self.theta_max = QDoubleSpinBox()
-        self.theta_max.setRange(-180.0, 180.0)
-        self.theta_max.setValue(180.0)
-        self.theta_max.setSuffix(" °")
-        theta_layout.addWidget(QLabel("min"))
-        theta_layout.addWidget(self.theta_min)
-        theta_layout.addWidget(QLabel("max"))
-        theta_layout.addWidget(self.theta_max)
-        form.addRow("θ range:", theta_row)
-
-        # --- Fix chi / Fix phi toggle ---
+        # --- Fix chi / Fix phi toggle buttons at the very top ---
         angle_sel = QWidget()
         angle_sel_layout = QHBoxLayout(angle_sel)
         angle_sel_layout.setContentsMargins(0, 0, 0, 0)
@@ -226,74 +190,115 @@ class AccessibleRegionControls(QWidget):
 
         angle_sel_layout.addWidget(self.fix_chi_btn)
         angle_sel_layout.addWidget(self.fix_phi_btn)
-        form.addRow("", angle_sel)
+        group_layout.addWidget(angle_sel)
 
-        # --- Chi fixed value / Chi range ---
-        self.chi_fixed_widget = QWidget()
-        chi_fixed_layout = QFormLayout(self.chi_fixed_widget)
-        chi_fixed_layout.setContentsMargins(0, 0, 0, 0)
+        # --- Grid layout for all angle rows (ensures column alignment) ---
+        # Columns: 0=label  1="min"/spinbox  2=spinbox  3="max"  4=spinbox
+        grid = QGridLayout()
+        grid.setColumnStretch(2, 1)
+        grid.setColumnStretch(4, 1)
+        group_layout.addLayout(grid)
+
+        r = 0  # row counter
+
+        # Row 0 — 2θ range (always visible)
+        self.tth_min = QDoubleSpinBox()
+        self.tth_min.setRange(0.0, 180.0)
+        self.tth_min.setValue(0.0)
+        self.tth_min.setSuffix(" °")
+        self.tth_max = QDoubleSpinBox()
+        self.tth_max.setRange(0.0, 180.0)
+        self.tth_max.setValue(180.0)
+        self.tth_max.setSuffix(" °")
+        grid.addWidget(QLabel("tth range:"), r, 0)
+        grid.addWidget(QLabel("min"), r, 1)
+        grid.addWidget(self.tth_min, r, 2)
+        grid.addWidget(QLabel("max"), r, 3)
+        grid.addWidget(self.tth_max, r, 4)
+
+        r += 1  # Row 1 — θ range (always visible)
+        self.theta_min = QDoubleSpinBox()
+        self.theta_min.setRange(-180.0, 180.0)
+        self.theta_min.setValue(0.0)
+        self.theta_min.setSuffix(" °")
+        self.theta_max = QDoubleSpinBox()
+        self.theta_max.setRange(-180.0, 180.0)
+        self.theta_max.setValue(180.0)
+        self.theta_max.setSuffix(" °")
+        grid.addWidget(QLabel("θ range:"), r, 0)
+        grid.addWidget(QLabel("min"), r, 1)
+        grid.addWidget(self.theta_min, r, 2)
+        grid.addWidget(QLabel("max"), r, 3)
+        grid.addWidget(self.theta_max, r, 4)
+
+        r += 1  # Row 2 — χ fixed value (shown when fix chi)
         self.chi_input = QDoubleSpinBox()
         self.chi_input.setRange(-180.0, 180.0)
         self.chi_input.setValue(0.0)
         self.chi_input.setSuffix(" °")
-        chi_fixed_layout.addRow("χ:", self.chi_input)
+        self._chi_fixed_label = QLabel("χ:")
+        grid.addWidget(self._chi_fixed_label, r, 0)
+        grid.addWidget(self.chi_input, r, 1, 1, 4)  # span cols 1-4
+        self._chi_fixed_widgets = [self._chi_fixed_label, self.chi_input]
 
-        self.chi_range_widget = QWidget()
-        chi_range_layout = QHBoxLayout(self.chi_range_widget)
-        chi_range_layout.setContentsMargins(0, 0, 0, 0)
+        r += 1  # Row 3 — χ range (shown when fix phi)
         self.chi_range_min = QDoubleSpinBox()
         self.chi_range_min.setRange(-180.0, 180.0)
-        self.chi_range_min.setValue(-180.0)
+        self.chi_range_min.setValue(0.0)
         self.chi_range_min.setSuffix(" °")
         self.chi_range_max = QDoubleSpinBox()
         self.chi_range_max.setRange(-180.0, 180.0)
         self.chi_range_max.setValue(180.0)
         self.chi_range_max.setSuffix(" °")
-        chi_range_layout.addWidget(QLabel("χ min"))
-        chi_range_layout.addWidget(self.chi_range_min)
-        chi_range_layout.addWidget(QLabel("max"))
-        chi_range_layout.addWidget(self.chi_range_max)
+        self._chi_range_label = QLabel("χ range:")
+        self._chi_range_min_label = QLabel("min")
+        self._chi_range_max_label = QLabel("max")
+        grid.addWidget(self._chi_range_label, r, 0)
+        grid.addWidget(self._chi_range_min_label, r, 1)
+        grid.addWidget(self.chi_range_min, r, 2)
+        grid.addWidget(self._chi_range_max_label, r, 3)
+        grid.addWidget(self.chi_range_max, r, 4)
+        self._chi_range_widgets = [
+            self._chi_range_label, self._chi_range_min_label,
+            self.chi_range_min, self._chi_range_max_label, self.chi_range_max,
+        ]
 
-        # --- Phi fixed value / Phi range ---
-        self.phi_fixed_widget = QWidget()
-        phi_fixed_layout = QFormLayout(self.phi_fixed_widget)
-        phi_fixed_layout.setContentsMargins(0, 0, 0, 0)
-        self.phi_input = QDoubleSpinBox()
-        self.phi_input.setRange(-180.0, 180.0)
-        self.phi_input.setValue(0.0)
-        self.phi_input.setSuffix(" °")
-        phi_fixed_layout.addRow("φ:", self.phi_input)
-
-        self.phi_range_widget = QWidget()
-        phi_range_layout = QHBoxLayout(self.phi_range_widget)
-        phi_range_layout.setContentsMargins(0, 0, 0, 0)
+        r += 1  # Row 4 — φ range (shown when fix chi)
         self.phi_range_min = QDoubleSpinBox()
         self.phi_range_min.setRange(-180.0, 180.0)
-        self.phi_range_min.setValue(-180.0)
+        self.phi_range_min.setValue(0.0)
         self.phi_range_min.setSuffix(" °")
         self.phi_range_max = QDoubleSpinBox()
         self.phi_range_max.setRange(-180.0, 180.0)
         self.phi_range_max.setValue(180.0)
         self.phi_range_max.setSuffix(" °")
-        phi_range_layout.addWidget(QLabel("φ min"))
-        phi_range_layout.addWidget(self.phi_range_min)
-        phi_range_layout.addWidget(QLabel("max"))
-        phi_range_layout.addWidget(self.phi_range_max)
+        self._phi_range_label = QLabel("φ range:")
+        self._phi_range_min_label = QLabel("min")
+        self._phi_range_max_label = QLabel("max")
+        grid.addWidget(self._phi_range_label, r, 0)
+        grid.addWidget(self._phi_range_min_label, r, 1)
+        grid.addWidget(self.phi_range_min, r, 2)
+        grid.addWidget(self._phi_range_max_label, r, 3)
+        grid.addWidget(self.phi_range_max, r, 4)
+        self._phi_range_widgets = [
+            self._phi_range_label, self._phi_range_min_label,
+            self.phi_range_min, self._phi_range_max_label, self.phi_range_max,
+        ]
 
-        # Container for the angle-dependent rows
-        angle_values = QWidget()
-        angle_values_layout = QVBoxLayout(angle_values)
-        angle_values_layout.setContentsMargins(0, 0, 0, 0)
-        angle_values_layout.addWidget(self.chi_fixed_widget)
-        angle_values_layout.addWidget(self.chi_range_widget)
-        angle_values_layout.addWidget(self.phi_fixed_widget)
-        angle_values_layout.addWidget(self.phi_range_widget)
-        form.addRow("", angle_values)
+        r += 1  # Row 5 — φ fixed value (shown when fix phi)
+        self.phi_input = QDoubleSpinBox()
+        self.phi_input.setRange(-180.0, 180.0)
+        self.phi_input.setValue(0.0)
+        self.phi_input.setSuffix(" °")
+        self._phi_fixed_label = QLabel("φ:")
+        grid.addWidget(self._phi_fixed_label, r, 0)
+        grid.addWidget(self.phi_input, r, 1, 1, 4)  # span cols 1-4
+        self._phi_fixed_widgets = [self._phi_fixed_label, self.phi_input]
 
-        # Find button
-        self.find_btn = QPushButton("Find Accessible Region")
-        self.find_btn.clicked.connect(self.findAccessibleClicked.emit)
-        form.addRow("", self.find_btn)
+        # Check Accessibility button
+        self.check_btn = QPushButton("Check Accessibility")
+        self.check_btn.clicked.connect(self.checkAccessibilityClicked.emit)
+        group_layout.addWidget(self.check_btn)
 
         layout.addWidget(group)
 
@@ -319,15 +324,18 @@ class AccessibleRegionControls(QWidget):
             btn.style().unpolish(btn)
             btn.style().polish(btn)
 
-        # Fix chi → show chi single input, phi range
-        self.chi_fixed_widget.setVisible(is_chi)
-        self.phi_range_widget.setVisible(is_chi)
-        # Fix phi → show phi single input, chi range
-        self.phi_fixed_widget.setVisible(not is_chi)
-        self.chi_range_widget.setVisible(not is_chi)
+        # Fix chi → show χ fixed + φ range, hide χ range + φ fixed
+        for w in self._chi_fixed_widgets:
+            w.setVisible(is_chi)
+        for w in self._phi_range_widgets:
+            w.setVisible(is_chi)
+        for w in self._chi_range_widgets:
+            w.setVisible(not is_chi)
+        for w in self._phi_fixed_widgets:
+            w.setVisible(not is_chi)
 
     def get_parameters(self):
-        """Return the current accessible region parameters.
+        """Return the current accessibility check parameters.
 
         Returns:
             dict with keys: tth_min, tth_max, theta_min, theta_max,
@@ -471,15 +479,22 @@ class CustomizedPlaneWidget(QWidget):
         """Get the controls widget."""
         return self.controls
         
-    def _generate_hkl_cube(self, max_index: int = 5):
-        """Generate a full integer HKL grid from 0..max_index for 3D visualization."""
+    @staticmethod
+    def _generate_hkl_cube(h_range, k_range, l_range):
+        """Generate a full integer HKL grid covering the given ranges.
+
+        Args:
+            h_range: (min, max) inclusive range for H.
+            k_range: (min, max) inclusive range for K.
+            l_range: (min, max) inclusive range for L.
+        """
         cube = []
-        for h in range(0, max_index + 1):
-            for k in range(0, max_index + 1):
-                for l in range(0, max_index + 1):
+        for h in range(h_range[0], h_range[1] + 1):
+            for k in range(k_range[0], k_range[1] + 1):
+                for l in range(l_range[0], l_range[1] + 1):
                     cube.append([h, k, l])
         return cube
-        
+
     @pyqtSlot()
     def update_plots(self):
         """Update 3D scatter (all HKL) with a custom plane overlay and 2D uv plot."""
@@ -505,8 +520,22 @@ class CustomizedPlaneWidget(QWidget):
             if not self.calculator or not self.calculator.is_initialized:
                 return
 
-            # 3D: plot all HKL points 0..5
-            hkl_list = self._generate_hkl_cube(5)
+            # Compute the plane HKL points first so we can derive 3D axis ranges
+            uv_points, hkl_points = generate_hkl_points_on_plane(U, V, C, u_range, v_range)
+
+            # Determine H, K, L extents from the plane points
+            if len(hkl_points) > 0:
+                hkl_arr = np.array(hkl_points)
+                h_min, k_min, l_min = int(hkl_arr[:, 0].min()), int(hkl_arr[:, 1].min()), int(hkl_arr[:, 2].min())
+                h_max, k_max, l_max = int(hkl_arr[:, 0].max()), int(hkl_arr[:, 1].max()), int(hkl_arr[:, 2].max())
+            else:
+                h_min, k_min, l_min = 0, 0, 0
+                h_max, k_max, l_max = 5, 5, 5
+
+            # 3D: generate HKL cube covering the plane extents
+            hkl_list = self._generate_hkl_cube(
+                (h_min, h_max), (k_min, k_max), (l_min, l_max)
+            )
             sf_values = self.calculator.calculate_structure_factors(hkl_list)
             self.plane_3d.visualize_structure_factors(hkl_list, sf_values)
 
@@ -515,9 +544,7 @@ class CustomizedPlaneWidget(QWidget):
                 U, V, u_min_param, u_max_param, v_min_param, v_max_param, steps=2, center=C
             )
 
-            # 2D: points on the plane using shared domain function
-            uv_points, hkl_points = generate_hkl_points_on_plane(U, V, C, u_range, v_range)
-
+            # 2D: structure factors on the plane
             if len(hkl_points) > 0:
                 sf_plane = self.calculator.calculate_structure_factors(hkl_points)
                 # Reference value for sizing: use |F(0,0,0)| for consistency

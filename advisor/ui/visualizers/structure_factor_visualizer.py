@@ -359,17 +359,14 @@ class StructureFactorVisualizer3D(FigureCanvas):
             self.axes.set_zlabel("L (r.l.u.)", fontsize=10)
             self.axes.set_title("Structure Factors in Reciprocal Space", fontsize=12)
 
-            # Set axis limits with default range (0, 5) and adjust if needed
-            default_max = 5.5
-
             # Calculate required ranges based on data with ±0.5 margin
             default_min = -0.5
             h_min = min(h_coords.min(), 0) - 0.5
             k_min = min(k_coords.min(), 0) - 0.5
             l_min = min(l_coords.min(), 0) - 0.5
-            h_max = max(h_coords.max() + 0.5, default_max)
-            k_max = max(k_coords.max() + 0.5, default_max)
-            l_max = max(l_coords.max() + 0.5, default_max)
+            h_max = h_coords.max() + 0.5
+            k_max = k_coords.max() + 0.5
+            l_max = l_coords.max() + 0.5
 
             # Set limits from calculated min to max
             self.axes.set_xlim(h_min if not np.isnan(h_min) else default_min, h_max)
