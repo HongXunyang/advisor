@@ -16,11 +16,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 import numpy as np
-import sys
-import os
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 from advisor.ui.visualizers import StructureFactorVisualizer3D, StructureFactorVisualizer2D
 
 

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-import os
-import sys
-
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFormLayout,
@@ -11,8 +8,6 @@ from PyQt5.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFormLayout,
                              QLineEdit, QPushButton, QSpinBox, QVBoxLayout,
                              QWidget)
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 from advisor.ui.visualizers import (StructureFactorVisualizer2D,
                                     StructureFactorVisualizer3D)
 
