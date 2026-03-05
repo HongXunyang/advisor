@@ -266,8 +266,8 @@ class ScatteringGeometryTab(TabInterface):
         right_layout.addWidget(self.angles_to_hkl_unitcell_viz)
 
         # Add columns to main layout
-        angles_layout.addWidget(left_column, 2)  # Left column takes 1 part
-        angles_layout.addWidget(right_column, 3)  # Right column takes 1.5 parts
+        angles_layout.addWidget(left_column, 2)  # Left column takes 2 parts (ratio base)
+        angles_layout.addWidget(right_column, 3)  # Right column takes 3 parts (equivalent to 1.5x)
 
         # Add to tab widget
         self.tab_widget.addTab(angles_tab, "Angles → HKL")
@@ -306,8 +306,8 @@ class ScatteringGeometryTab(TabInterface):
         right_layout.addWidget(self.hkl_to_angles_unitcell_viz)
 
         # Add columns to main layout
-        hkl_layout.addWidget(left_column, 1)  # Left column takes 1 part
-        hkl_layout.addWidget(right_column, 1.5)  # Right column takes 1.5 parts
+        hkl_layout.addWidget(left_column, 2)  # Left column takes 2 parts (ratio base)
+        hkl_layout.addWidget(right_column, 3)  # Right column takes 3 parts (equivalent to 1.5x)
 
         # Add to tab widget
         self.tab_widget.addTab(hkl_tab, "HKL → Angles")
@@ -346,8 +346,8 @@ class ScatteringGeometryTab(TabInterface):
         right_layout.addWidget(self.hk_fixed_tth_unitcell_viz)
 
         # Add columns to main layout
-        hk_layout.addWidget(left_column, 1)  # Left column takes 1 part
-        hk_layout.addWidget(right_column, 1.5)  # Right column takes 1.5 parts
+        hk_layout.addWidget(left_column, 2)  # Left column takes 2 parts (ratio base)
+        hk_layout.addWidget(right_column, 3)  # Right column takes 3 parts (equivalent to 1.5x)
 
         # Add to tab widget
         self.tab_widget.addTab(hk_tab, "HK to Angles | tth fixed")
