@@ -1,17 +1,13 @@
+# --- Project-local dirs (not part of the package) ---
 /data
-/figures    
+/figures
 /temp
 /reports
-.DS_Store
-**/.cursor/rules/
-/.cursor/rules/
 /materials
-__pycache__/
-# ignore all __pycache__ folders in all subfolders
-**/__pycache__/
 
 # --- Python bytecode & caches ---
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -23,6 +19,7 @@ __pycache__/
 .mypy_cache/
 .coverage*
 htmlcov/
+
 # --- Virtual environments (common names) ---
 .venv/
 venv/
@@ -30,10 +27,8 @@ env/
 ENV/
 .virtualenv/
 .pythonenv/
-figures/
 
-
-# --- Build outputs (if needed in future) ---
+# --- Build outputs ---
 /build/
 /dist/
 /*.spec
@@ -51,17 +46,12 @@ Thumbs.db
 .vscode/
 .idea/
 
-
-# --- Lagacy files ---
+# --- Legacy files ---
 lagacy/
 **/lagacy/
 
-# --- test files ---
-test/
-**/test/
-
+# --- Local-only project files ---
 update_instructions.md
-
 TODO.md
-
 .cursor/
+CLAUDE.md
