@@ -431,10 +431,13 @@ class HKAnglesResultsWidget(QWidget):
         results_layout.addWidget(self.solutions_label)
 
         # Current solutions display (table for up to 4 solutions: up to 2
-        # momentum roots, each with up to 2 angle solutions)
+        # momentum roots, each with up to 2 angle solutions). HKL is not
+        # shown here (it can vary per solution when there are 2 momentum
+        # roots) -- see it via "Show History" instead, matching the HKL ->
+        # Angles panel's style.
         self.results_table = QTableWidget()
-        self.results_table.setColumnCount(7)
-        self.results_table.setHorizontalHeaderLabels(["H", "K", "L", "tth (°)", "θ (°)", "χ (°)", "φ (°)"])
+        self.results_table.setColumnCount(4)
+        self.results_table.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "χ (°)", "φ (°)"])
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.results_table.verticalHeader().setVisible(False)
         self.results_table.setMaximumHeight(90)
@@ -466,9 +469,6 @@ class HKAnglesResultsWidget(QWidget):
         # Clear and populate table
         self.results_table.setRowCount(0)
         
-        h_list = results.get('H', [])
-        k_list = results.get('K', [])
-        l_list = results.get('L', [])
         tth_list = results.get('tth', [])
         theta_list = results.get('theta', [])
         chi_list = results.get('chi', [])
@@ -479,18 +479,15 @@ class HKAnglesResultsWidget(QWidget):
             row = self.results_table.rowCount()
             self.results_table.insertRow(row)
 
-            self.results_table.setItem(row, 0, QTableWidgetItem(f"{h_list[i]:.4f}"))
-            self.results_table.setItem(row, 1, QTableWidgetItem(f"{k_list[i]:.4f}"))
-            self.results_table.setItem(row, 2, QTableWidgetItem(f"{l_list[i]:.4f}"))
-            self.results_table.setItem(row, 3, QTableWidgetItem(f"{tth_list[i]:.2f}"))
-            self.results_table.setItem(row, 4, QTableWidgetItem(f"{theta_list[i]:.2f}"))
-            self.results_table.setItem(row, 5, QTableWidgetItem(f"{chi_list[i]:.2f}"))
-            self.results_table.setItem(row, 6, QTableWidgetItem(f"{phi_list[i]:.2f}"))
+            self.results_table.setItem(row, 0, QTableWidgetItem(f"{tth_list[i]:.2f}"))
+            self.results_table.setItem(row, 1, QTableWidgetItem(f"{theta_list[i]:.2f}"))
+            self.results_table.setItem(row, 2, QTableWidgetItem(f"{chi_list[i]:.2f}"))
+            self.results_table.setItem(row, 3, QTableWidgetItem(f"{phi_list[i]:.2f}"))
 
             # Color based on feasibility
             feasible = feasible_list[i] if i < len(feasible_list) else True
             color = QColor(198, 239, 206) if feasible else QColor(255, 199, 206)
-            for col in range(7):
+            for col in range(4):
                 item = self.results_table.item(row, col)
                 if item:
                     item.setBackground(QBrush(color))

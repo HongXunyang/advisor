@@ -564,7 +564,17 @@ class ScatteringGeometryTab(TabInterface):
             )
             return
         self.hkl_to_angles_results.display_results(result)
-        
+
+        if result["number_of_solutions"] == 0:
+            QMessageBox.warning(
+                self,
+                "No Solution",
+                "No feasible angle solution exists for this HKL point with the "
+                "given fixed angle. The point may be unreachable at this energy, "
+                "or unreachable with this particular fixed angle value.",
+            )
+            return
+
         # Update visualization with the first solution
         # Extract first solution for visualization
         first_solution = {
@@ -624,6 +634,16 @@ class ScatteringGeometryTab(TabInterface):
             )
             return
         self.hk_angles_results.display_results(result)
+
+        if result["number_of_solutions"] == 0:
+            QMessageBox.warning(
+                self,
+                "No Solution",
+                "No feasible angle solution exists for this HK point with the "
+                "given fixed tth/fixed angle. The point may be unreachable at "
+                "this energy, or unreachable with this particular fixed angle value.",
+            )
+            return
 
         # Update visualization with the first solution
         # Extract first solution for visualization

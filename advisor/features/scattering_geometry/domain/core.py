@@ -96,8 +96,15 @@ def calculate_k_magnitude(k_in, tth):
 
 
 def calculate_tth_from_k_magnitude(k_in, k_magnitude):
-    """calculate the scattering angle tth from the momentum transfer magnitude"""
-    return 2 * np.degrees(np.arcsin(k_magnitude / (2 * k_in)))
+    """calculate the scattering angle tth from the momentum transfer magnitude.
+
+    Returns NaN (without raising or warning) if k_magnitude exceeds 2*k_in,
+    i.e. the momentum transfer is not reachable at this energy.
+    """
+    ratio = k_magnitude / (2 * k_in)
+    if abs(ratio) > 1.0:
+        return float("nan")
+    return 2 * np.degrees(np.arcsin(ratio))
 
 
 def calculate_k_vector_in_lab(k_in, tth):
