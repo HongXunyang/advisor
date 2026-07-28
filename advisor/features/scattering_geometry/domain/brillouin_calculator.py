@@ -247,7 +247,8 @@ class BrillouinCalculator:
     ):
         """Calculate scattering angles with fixed tth.
 
-        Returns up to two solutions if they exist.
+        The missing HKL component can have up to 2 momentum solutions, each of
+        which can have up to 2 angle solutions, so up to 4 solutions total.
 
         Args:
             tth (float): Fixed scattering angle in degrees
@@ -256,7 +257,10 @@ class BrillouinCalculator:
             fixed_angle (float): Value of the fixed angle in degrees
 
         Returns:
-            dict: Dictionary containing lists of solutions and metadata
+            dict: Dictionary containing lists of solutions and metadata.
+                H, K, L are per-solution lists (the two given indices are
+                constant across entries; the solved one may vary between
+                momentum roots).
         """
         a, b, c, alpha, beta, gamma = self.lab.get_lattice_parameters()
         roll, pitch, yaw = self.lab.get_lattice_angles()
@@ -286,14 +290,16 @@ class BrillouinCalculator:
             theta_list = result["theta"]
             phi_list = result["phi"]
             chi_list = result["chi"]
-            momentum = result["momentum"]
+            momentum_list = result["momentum"]
             num_solutions = result["number_of_solutions"]
-            
-            # Update the solved HKL component
-            H_result = momentum if H is None else H
-            K_result = momentum if K is None else K
-            L_result = momentum if L is None else L
-            
+
+            # Update the solved HKL component. Up to 2 momentum roots can each
+            # produce up to 2 angle solutions, so H/K/L are per-solution lists
+            # (the two given indices are simply constant across all entries).
+            H_result = [momentum_list[i] if H is None else H for i in range(num_solutions)]
+            K_result = [momentum_list[i] if K is None else K for i in range(num_solutions)]
+            L_result = [momentum_list[i] if L is None else L for i in range(num_solutions)]
+
         except Exception as e:
             return {
                 "success": False,
@@ -422,9 +428,9 @@ class BrillouinCalculator:
                     all_theta.append(result["theta"][sol_idx])
                     all_phi.append(result["phi"][sol_idx])
                     all_chi.append(result["chi"][sol_idx])
-                    all_h.append(result["H"])
-                    all_k.append(result["K"])
-                    all_l.append(result["L"])
+                    all_h.append(result["H"][sol_idx])
+                    all_k.append(result["K"][sol_idx])
+                    all_l.append(result["L"][sol_idx])
                     all_feasible.append(result["feasible"][sol_idx])
                     all_solution_group.append(i)  # Which HKL point
                     all_solution_index.append(sol_idx + 1)  # Solution 1 or 2

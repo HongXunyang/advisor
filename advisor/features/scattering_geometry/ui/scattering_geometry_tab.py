@@ -632,9 +632,9 @@ class ScatteringGeometryTab(TabInterface):
             "theta": result["theta"][0],
             "phi": result["phi"][0],
             "chi": result["chi"][0],
-            "H": result["H"],
-            "K": result["K"],
-            "L": result["L"],
+            "H": result["H"][0],
+            "K": result["K"][0],
+            "L": result["L"][0],
         }
         self.hk_fixed_tth_visualizer.visualize_lab_system(
             is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True

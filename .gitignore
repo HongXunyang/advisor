@@ -55,3 +55,6 @@ update_instructions.md
 TODO.md
 .cursor/
 CLAUDE.md
+
+# --- Local derivation notes (not part of the paper) ---
+/paper/derivations/

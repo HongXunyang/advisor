@@ -173,6 +173,109 @@ class TestRoundTrip:
                     f"[{crystal_type}] L mismatch for {(H_orig, K_orig, L_orig)} solution {sol_idx + 1}"
     
 
+class TestRoundTripPhiFixed:
+    """Round-trip tests: HKL -> Angles -> HKL for all crystal types, phi fixed.
+
+    Mirrors TestRoundTrip above (which only covered fixed_angle_name="chi").
+    """
+
+    @pytest.mark.parametrize("crystal_type", ALL_CRYSTAL_TYPES)
+    def test_hkl_to_angles_to_hkl_all_solutions(self, make_calculator, crystal_type):
+        calc = make_calculator(crystal_type)
+
+        H_orig, K_orig, L_orig = -0.1, -0.1, -0.5
+
+        angles_result = calc.calculate_angles(
+            H=H_orig, K=K_orig, L=L_orig,
+            fixed_angle=0.0,
+            fixed_angle_name="phi",
+        )
+
+        assert angles_result["success"], f"Failed for {crystal_type}"
+
+        num_solutions = angles_result["number_of_solutions"]
+        assert num_solutions >= 1, f"Should find at least one solution for {crystal_type}"
+
+        for sol_idx in range(num_solutions):
+            hkl_result = calc.calculate_hkl(
+                tth=angles_result["tth"][sol_idx],
+                theta=angles_result["theta"][sol_idx],
+                phi=angles_result["phi"][sol_idx],
+                chi=angles_result["chi"][sol_idx],
+            )
+
+            assert hkl_result["success"], \
+                f"[{crystal_type}] Solution {sol_idx + 1} failed to convert back"
+            assert hkl_result["H"] == pytest.approx(H_orig, abs=0.01)
+            assert hkl_result["K"] == pytest.approx(K_orig, abs=0.01)
+            assert hkl_result["L"] == pytest.approx(L_orig, abs=0.01)
+
+
+class TestRoundTripWithLatticeRotation:
+    """Round-trip tests with non-zero lattice Euler angles (roll/pitch/yaw)."""
+
+    @pytest.mark.parametrize("crystal_type", ALL_CRYSTAL_TYPES)
+    @pytest.mark.parametrize("fixed_angle_name", ["chi", "phi"])
+    def test_round_trip_with_nonzero_rotation(self, make_calculator, crystal_type, fixed_angle_name):
+        calc = make_calculator(
+            crystal_type, euler_angles={"roll": 10.0, "pitch": 20.0, "yaw": 30.0}
+        )
+
+        H_orig, K_orig, L_orig = -0.1, -0.1, -0.3
+
+        angles_result = calc.calculate_angles(
+            H=H_orig, K=K_orig, L=L_orig,
+            fixed_angle=0.0,
+            fixed_angle_name=fixed_angle_name,
+        )
+
+        assert angles_result["success"], f"Failed for {crystal_type}/{fixed_angle_name}"
+        num_solutions = angles_result["number_of_solutions"]
+        assert num_solutions >= 1
+
+        for sol_idx in range(num_solutions):
+            hkl_result = calc.calculate_hkl(
+                tth=angles_result["tth"][sol_idx],
+                theta=angles_result["theta"][sol_idx],
+                phi=angles_result["phi"][sol_idx],
+                chi=angles_result["chi"][sol_idx],
+            )
+            assert hkl_result["H"] == pytest.approx(H_orig, abs=0.01)
+            assert hkl_result["K"] == pytest.approx(K_orig, abs=0.01)
+            assert hkl_result["L"] == pytest.approx(L_orig, abs=0.01)
+
+
+class TestCalculateAnglesDeterminism:
+    """The analytic solver must be exactly deterministic (no random restarts)."""
+
+    def test_calculate_angles_deterministic_across_repeated_calls(self, initialized_calculator):
+        results = [
+            initialized_calculator.calculate_angles(
+                H=0.1, K=0.1, L=-0.5, fixed_angle=0.0, fixed_angle_name="chi",
+            )
+            for _ in range(5)
+        ]
+        first = results[0]
+        for other in results[1:]:
+            assert other["number_of_solutions"] == first["number_of_solutions"]
+            assert other["theta"] == first["theta"]
+            assert other["phi"] == first["phi"]
+            assert other["chi"] == first["chi"]
+            assert other["tth"] == first["tth"]
+
+    def test_unreachable_hkl_returns_zero_solutions_and_empty_lists(self, initialized_calculator):
+        result = initialized_calculator.calculate_angles(
+            H=5.0, K=5.0, L=5.0, fixed_angle=0.0, fixed_angle_name="chi",
+        )
+        assert result["success"]
+        assert result["number_of_solutions"] == 0
+        assert result["tth"] == []
+        assert result["theta"] == []
+        assert result["phi"] == []
+        assert result["chi"] == []
+        assert result["feasible"] == []
+
+
 class TestCalculateAnglesTthFixed:
     """Tests for calculate_angles_tth_fixed method."""
     
@@ -188,9 +291,11 @@ class TestCalculateAnglesTthFixed:
         )
         
         assert result["success"]
-        # L should now be a float (solved value)
-        assert isinstance(result["L"], float)
-        assert result["L"] != 0.0  # Should have computed a value
+        # L should now be a per-solution list (solved value(s); up to 2
+        # momentum roots are possible)
+        assert isinstance(result["L"], list)
+        assert len(result["L"]) == result["number_of_solutions"]
+        assert all(l_val != 0.0 for l_val in result["L"])
     
     def test_returns_multiple_solutions(self, initialized_calculator):
         """Should return up to 2 solutions."""
@@ -206,6 +311,69 @@ class TestCalculateAnglesTthFixed:
         assert result["success"]
         assert "number_of_solutions" in result
         assert len(result["tth"]) == result["number_of_solutions"]
+
+    def test_two_momentum_roots_give_list_valued_hkl(self):
+        """When the missing component has 2 real roots, H/K/L come back as
+        per-solution lists with the correct values (verified independently
+        against the closed-form quadratic)."""
+        calc = BrillouinCalculator()
+        calc.initialize({
+            "a": 4.0, "b": 4.0, "c": 12.0,
+            "alpha": 90.0, "beta": 90.0, "gamma": 90.0,
+            "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
+            "energy": 930.0,
+        })
+
+        result = calc.calculate_angles_tth_fixed(
+            tth=150.0, H=-0.1, K=-0.1, L=None,
+            fixed_angle_name="chi", fixed_angle=0.0,
+        )
+
+        assert result["success"]
+        assert result["number_of_solutions"] == 2
+        assert isinstance(result["H"], list)
+        assert isinstance(result["K"], list)
+        assert isinstance(result["L"], list)
+        assert result["H"] == [-0.1, -0.1]
+        assert result["K"] == [-0.1, -0.1]
+        assert sorted(result["L"]) == pytest.approx(
+            [-1.6863367602336528, 1.6863367602336528], abs=1e-6
+        )
+
+    def test_momentum_scan_h_k_l_align_with_solution_index(self):
+        """calculate_angles_tth_fixed_scan must carry per-solution H/K/L
+        (not the pre-fix scalar-per-point value) alongside solution_group /
+        solution_index bookkeeping."""
+        calc = BrillouinCalculator()
+        calc.initialize({
+            "a": 4.0, "b": 4.0, "c": 12.0,
+            "alpha": 90.0, "beta": 90.0, "gamma": 90.0,
+            "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
+            "energy": 930.0,
+        })
+
+        result = calc.calculate_angles_tth_fixed_scan(
+            tth=150.0,
+            start_points=(-0.1, -0.1, 0.0),
+            end_points=(-0.1, -0.1, 0.0),
+            num_points=2,
+            deactivated_index="L",
+            fixed_angle_name="chi",
+            fixed_angle=0.0,
+        )
+
+        assert result["success"]
+        # Each of the 2 scan points should have exactly 2 solutions (one per
+        # momentum root), so L should take both signs within each group.
+        for group in set(result["solution_group"]):
+            l_values = [
+                result["L"][i]
+                for i in range(len(result["L"]))
+                if result["solution_group"][i] == group
+            ]
+            assert sorted(l_values) == pytest.approx(
+                [-1.6863367602336528, 1.6863367602336528], abs=1e-6
+            )
 
 
 class TestFeasibility:
