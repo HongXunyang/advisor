@@ -540,132 +540,140 @@ class ScatteringGeometryTab(TabInterface):
     @pyqtSlot()
     def calculate_angles(self):
         """Calculate angles from HKL."""
-        if not self.calculator.is_initialized():
-            QMessageBox.warning(
-                self, "Warning", "Please initialize the calculator first!"
+        try:
+            if not self.calculator.is_initialized():
+                QMessageBox.warning(
+                    self, "Warning", "Please initialize the calculator first!"
+                )
+                self.tab_widget.setCurrentIndex(0)
+                return
+
+            # Get parameters from the controls component
+            params = self.hkl_to_angles_controls.get_calculation_parameters()
+
+            # Calculate angles
+            result = self.calculator.calculate_angles(
+                H=params["H"],
+                K=params["K"],
+                L=params["L"],
+                fixed_angle=params["fixed_angle_value"],
+                fixed_angle_name=params["fixed_angle_name"],
             )
-            self.tab_widget.setCurrentIndex(0)
-            return
+            if not result["success"]:
+                QMessageBox.warning(
+                    self, "Warning", result.get("error", "No solution found")
+                )
+                return
+            self.hkl_to_angles_results.display_results(result)
 
-        # Get parameters from the controls component
-        params = self.hkl_to_angles_controls.get_calculation_parameters()
+            if result["number_of_solutions"] == 0:
+                QMessageBox.warning(
+                    self,
+                    "No Solution",
+                    "No feasible angle solution exists for this HKL point with the "
+                    "given fixed angle. The point may be unreachable at this energy, "
+                    "or unreachable with this particular fixed angle value.",
+                )
+                return
 
-        # Calculate angles
-        result = self.calculator.calculate_angles(
-            H=params["H"],
-            K=params["K"],
-            L=params["L"],
-            fixed_angle=params["fixed_angle_value"],
-            fixed_angle_name=params["fixed_angle_name"],
-        )
-        if not result["success"]:
-            QMessageBox.warning(
-                self, "Warning", result.get("error", "No solution found")
+            # Update visualization with the first solution
+            # Extract first solution for visualization
+            first_solution = {
+                "tth": result["tth"][0],
+                "theta": result["theta"][0],
+                "phi": result["phi"][0],
+                "chi": result["chi"][0],
+                "H": result["H"],
+                "K": result["K"],
+                "L": result["L"],
+            }
+            self.hkl_to_angles_visualizer.visualize_lab_system(
+                is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True
             )
-            return
-        self.hkl_to_angles_results.display_results(result)
-
-        if result["number_of_solutions"] == 0:
-            QMessageBox.warning(
-                self,
-                "No Solution",
-                "No feasible angle solution exists for this HKL point with the "
-                "given fixed angle. The point may be unreachable at this energy, "
-                "or unreachable with this particular fixed angle value.",
+            self.hkl_to_angles_visualizer.visualize_scattering_geometry(
+                scattering_angles=first_solution, is_clear=False
             )
-            return
+            self.hkl_to_angles_unitcell_viz.visualize_unitcell()
+            self.hkl_to_angles_unitcell_viz.visualize_scattering_geometry(
+                scattering_angles=first_solution
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"**Error** calculating angles: {str(e)}")
 
-        # Update visualization with the first solution
-        # Extract first solution for visualization
-        first_solution = {
-            "tth": result["tth"][0],
-            "theta": result["theta"][0],
-            "phi": result["phi"][0],
-            "chi": result["chi"][0],
-            "H": result["H"],
-            "K": result["K"],
-            "L": result["L"],
-        }
-        self.hkl_to_angles_visualizer.visualize_lab_system(
-            is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True
-        )
-        self.hkl_to_angles_visualizer.visualize_scattering_geometry(
-            scattering_angles=first_solution, is_clear=False
-        )
-        self.hkl_to_angles_unitcell_viz.visualize_unitcell()
-        self.hkl_to_angles_unitcell_viz.visualize_scattering_geometry(
-            scattering_angles=first_solution
-        ) 
     @pyqtSlot()
     def calculate_angles_tth_fixed(self):
         """Calculate angles from HK with fixed tth."""
-        # Check if calculator is initialized
-        if not self.calculator.is_initialized():
-            QMessageBox.warning(
-                self, "Warning", "Please initialize the calculator first!"
+        try:
+            # Check if calculator is initialized
+            if not self.calculator.is_initialized():
+                QMessageBox.warning(
+                    self, "Warning", "Please initialize the calculator first!"
+                )
+                self.tab_widget.setCurrentIndex(0)
+                return
+
+            # Get parameters from the controls component
+            params = self.hk_angles_controls.get_calculation_parameters()
+
+            # Extract values for calculation
+            tth = params["tth"]
+            H = params["H"]
+            K = params["K"]
+            L = params["L"]
+            fixed_index = params["fixed_index"]
+            fixed_angle_name = params["fixed_angle_name"]
+            fixed_angle_value = params["fixed_angle_value"]
+
+            # Calculate angles
+            result = self.calculator.calculate_angles_tth_fixed(
+                tth=tth,
+                H=H,
+                K=K,
+                L=L,
+                fixed_angle_name=fixed_angle_name,
+                fixed_angle=fixed_angle_value,
             )
-            self.tab_widget.setCurrentIndex(0)
-            return
+            if not result["success"]:
+                QMessageBox.warning(
+                    self, "Warning", result.get("error", "No solution found")
+                )
+                return
+            self.hk_angles_results.display_results(result)
 
-        # Get parameters from the controls component
-        params = self.hk_angles_controls.get_calculation_parameters()
-        
-        # Extract values for calculation
-        tth = params["tth"]
-        H = params["H"]
-        K = params["K"]
-        L = params["L"]
-        fixed_index = params["fixed_index"]
-        fixed_angle_name = params["fixed_angle_name"]
-        fixed_angle_value = params["fixed_angle_value"]
+            if result["number_of_solutions"] == 0:
+                QMessageBox.warning(
+                    self,
+                    "No Solution",
+                    "No feasible angle solution exists for this HK point with the "
+                    "given fixed tth/fixed angle. The point may be unreachable at "
+                    "this energy, or unreachable with this particular fixed angle value.",
+                )
+                return
 
-        # Calculate angles
-        result = self.calculator.calculate_angles_tth_fixed(
-            tth=tth,
-            H=H,
-            K=K,
-            L=L,
-            fixed_angle_name=fixed_angle_name,
-            fixed_angle=fixed_angle_value,
-        )
-        if not result["success"]:
-            QMessageBox.warning(
-                self, "Warning", result.get("error", "No solution found")
+            # Update visualization with the first solution
+            # Extract first solution for visualization
+            first_solution = {
+                "tth": result["tth"][0],
+                "theta": result["theta"][0],
+                "phi": result["phi"][0],
+                "chi": result["chi"][0],
+                "H": result["H"][0],
+                "K": result["K"][0],
+                "L": result["L"][0],
+            }
+            self.hk_fixed_tth_visualizer.visualize_lab_system(
+                is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True
             )
-            return
-        self.hk_angles_results.display_results(result)
-
-        if result["number_of_solutions"] == 0:
-            QMessageBox.warning(
-                self,
-                "No Solution",
-                "No feasible angle solution exists for this HK point with the "
-                "given fixed tth/fixed angle. The point may be unreachable at "
-                "this energy, or unreachable with this particular fixed angle value.",
+            self.hk_fixed_tth_visualizer.visualize_scattering_geometry(
+                scattering_angles=first_solution, is_clear=False
             )
-            return
+            self.hk_fixed_tth_unitcell_viz.visualize_unitcell()
+            self.hk_fixed_tth_unitcell_viz.visualize_scattering_geometry(
+                scattering_angles=first_solution
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"**Error** calculating angles (tth fixed): {str(e)}")
 
-        # Update visualization with the first solution
-        # Extract first solution for visualization
-        first_solution = {
-            "tth": result["tth"][0],
-            "theta": result["theta"][0],
-            "phi": result["phi"][0],
-            "chi": result["chi"][0],
-            "H": result["H"][0],
-            "K": result["K"][0],
-            "L": result["L"][0],
-        }
-        self.hk_fixed_tth_visualizer.visualize_lab_system(
-            is_clear=True, chi=first_solution["chi"], phi=first_solution["phi"], plot_basis=False, plot_k_basis=True
-        )
-        self.hk_fixed_tth_visualizer.visualize_scattering_geometry(
-            scattering_angles=first_solution, is_clear=False
-        )
-        self.hk_fixed_tth_unitcell_viz.visualize_unitcell()
-        self.hk_fixed_tth_unitcell_viz.visualize_scattering_geometry(
-            scattering_angles=first_solution
-        ) 
     @pyqtSlot()
     def on_angle_solution_selected(self, solution):
         """Handle selection of a specific angle solution from the results widget."""
