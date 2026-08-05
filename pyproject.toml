@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "advisor-scattering"
-version = "1.0.0"
+version = "1.0.1"
 description = "Advisor-Scattering: Advanced Visual X-ray Scattering Toolkit for Reciprocal-space visualization and calculation"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -12,11 +12,21 @@ license = { text = "MIT" }
 authors = [{ name = "Xunyang Hong" }]
 keywords = ["scattering", "reciprocal-space", "pyqt", "visualization", "x-ray scattering", "x-ray diffraction"]
 classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
+  "Environment :: X11 Applications :: Qt",
   "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Visualization",
 ]
 dependencies = [
   "PyQt5>=5.15.11",
@@ -29,6 +39,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/HongXunyang/advisor"
 Documentation = "https://advisor-scattering.readthedocs.io/en/latest/"
+Repository = "https://github.com/HongXunyang/advisor"
+Issues = "https://github.com/HongXunyang/advisor/issues"
+Changelog = "https://github.com/HongXunyang/advisor/blob/main/CHANGELOG.md"
 
 [project.scripts]
 advisor-scattering = "advisor.app:main"

@@ -1,7 +1,10 @@
 # Advisor-Scattering — Advanced Visual Scattering Toolkit for Reciprocal-space
 
-![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-green.svg)
+![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)
+[![Tests](https://github.com/HongXunyang/advisor/actions/workflows/tests.yml/badge.svg)](https://github.com/HongXunyang/advisor/actions/workflows/tests.yml)
+[![Docs](https://readthedocs.org/projects/advisor-scattering/badge/?version=latest)](https://advisor-scattering.readthedocs.io/en/latest/)
 
 Advisor-Scattering is a PyQt5 desktop app for X-ray scattering/diffraction experiments. It helps you convert scattering angles ↔ momentum transfer (HKL), explore scattering geometry, and visualize structure factors—all with interactive plots. Full docs on *[Read the Docs](https://advisor-scattering.readthedocs.io/en/latest/)*.
 
@@ -92,3 +95,8 @@ docs/             Sphinx sources and assets
 ## Documentation
 - Full Sphinx docs live in `docs/` and on *[Read the Docs](https://advisor-scattering.readthedocs.io/en/latest/)*.
 - Appendix covers scattering angle definitions and HKL conventions.
+
+## Contributing
+Bug reports, feature requests, and pull requests are welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, testing, and architecture
+pointers. This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).

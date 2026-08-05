@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import numpy as np
-from scipy.optimize import fsolve
 
-from advisor.domain import angle_to_matrix
 from advisor.domain.core import Lab
 
 from .core import (_calculate_angles_factory, _calculate_angles_tth_fixed,

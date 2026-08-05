@@ -21,7 +21,7 @@ If you have diffraction test data (known HKL values with measured angles), you c
 
 The algorithm uses least-squares optimization with multiple random restarts to find the best orientation that minimizes the difference between calculated and measured HKL values.
 
-.. image:: _static/init.jpg
+.. image:: _static/init.gif
    :alt: Screenshot of the initialization window with callouts.
    :class: with-border
 

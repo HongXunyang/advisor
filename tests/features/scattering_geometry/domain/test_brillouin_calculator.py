@@ -476,9 +476,9 @@ class TestCalculateHKL:
     # =========================================================================
     # Known angle-HKL pairs
     # =========================================================================
-    # TODO: Fill in the expected H, K, L values for these known angle combinations
-    #       These should be verified experimentally or calculated independently
-    #       Note: Each crystal type may need its own set of verified pairs
+    # Expected H, K, L values below are derived independently from momentum
+    # geometry (e.g. at theta=-60, phi=chi=0, |Q|=k_in points purely along
+    # -b_star), not from the code under test.
     k_in = BEAM_CONFIGS["k_in"]
     TETRAG_CONFIGS = LATTICE_CONFIGS["tetragonal"]
     a_star, b_star, c_star = TETRAG_CONFIGS["a_star"], TETRAG_CONFIGS["b_star"], TETRAG_CONFIGS["c_star"]

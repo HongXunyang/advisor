@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ADVISOR: ADvanced VIsualization of Scattering ORientation"
+type: software
+version: 1.0.0
+date-released: "2026-07-28"
+license: MIT
+repository-code: "https://github.com/HongXunyang/advisor"
+url: "https://advisor-scattering.readthedocs.io/en/latest/"
+authors:
+  - family-names: Hong
+    given-names: Xunyang
+    orcid: "https://orcid.org/0000-0001-6219-2851"
+    affiliation: "Physik Institut, Universität Zürich"
+  - family-names: Li
+    given-names: "Sze Tung"
+    affiliation: "The Chinese University of Hong Kong"
+  - family-names: Martinelli
+    given-names: Leonardo
+    affiliation: "Physik Institut, Universität Zürich"
+  - family-names: Wang
+    given-names: Qisi
+    affiliation: "The Chinese University of Hong Kong"
+  - family-names: Chang
+    given-names: Johan
+    affiliation: "Physik Institut, Universität Zürich"

@@ -63,7 +63,8 @@ class AppController:
         try:
             with open(config_path, "r", encoding="utf-8") as handle:
                 return json.load(handle)
-        except Exception:
+        except Exception as e:
+            print(f"Warning: could not load app config from {config_path} ({e}); using defaults")
             return {
                 "app_name": "Advisor-Scattering",
                 "window_size": {"width": 1200, "height": 800},

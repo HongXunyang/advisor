@@ -56,13 +56,13 @@ planes—all through an intuitive graphical interface.
 # Statement of need
 **X-ray scattering**, when energy-resolved, access to collective excitations such as phonons and
 other elementary modes—capabilities that make synchrotron-based scattering central to modern
-condensed-matter and materials physics [@ament2011; @fink2013, @mitrano2024, @baron2020]. In
+condensed-matter and materials physics [@ament2011; @fink2013; @mitrano2024; @baron2020]. In
 contrast, **X-ray diffraction** focuses on Bragg scattering from periodic order, providing
 quantitative determination of lattice parameters, symmetry, crystal structure,
 strain/microstructure, and phase fractions that underpin structure–property studies and
-phase-transition physics [@cullity1986; @bunaciu2015]. Beyond physics, X-ray diffraction also has broad applications in method in
+phase-transition physics [@cullity1986; @bunaciu2015]. Beyond physics, X-ray diffraction methods also have broad applications in
 **chemistry** (structure determination and solid-state phase analysis) and in **geology/mineralogy**
-(mineral identification and quantitative phase analysis of complex mixtures) [@bunaciu2015;].
+(mineral identification and quantitative phase analysis of complex mixtures) [@bunaciu2015].
 
 
 X-ray scattering and X-ray diffraction experiments are typically carried out at synchrotron
@@ -84,7 +84,7 @@ systems.
 
 Furthermore, understanding the intensity distribution of structure factors 
 across reciprocal space is essential for identifying strong reflections and 
-planning efficient measurement strategies. While crystallographic packages [@olex2; @shelx, @vesta;
+planning efficient measurement strategies. While crystallographic packages [@olex2; @shelx; @vesta;
 @recipro] exist, many are either heavy-weight, or
 lack interactive visualization capabilities for exploring reciprocal space. They are not specifically
 tailored for quick geometry-momentum conversions. 
@@ -108,7 +108,9 @@ details can be found in the project's documentation [@advisor_doc].
 
 # Software description
 Advisor-Scattering is built on PyQt5 [@pyqt] for the graphical interface and 
-Matplotlib [@matplotlib] for visualization. The architecture separates 
+Matplotlib [@matplotlib] for visualization, with NumPy [@numpy] and SciPy 
+[@scipy] underpinning the domain-layer crystallographic and rotation-matrix 
+calculations. The architecture separates 
 domain logic from user interface components, facilitating maintenance and 
 extension. \autoref{fig:overview} illustrates the application's main 
 functionalities. The documentation is available at readthedocs [@advisor_doc].
@@ -241,7 +243,7 @@ Planned developments include:
 
 # Acknowledgements
 
-The author acknowledges helpful discussions with colleagues at [institution] 
+The author acknowledges helpful discussions with beamline scientist colleagues
 regarding diffractometer conventions and user interface design.
 
 

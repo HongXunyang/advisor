@@ -3,7 +3,7 @@ Appendix
 
 
 Reference frames:
-----------------
+------------------
 
 There are three reference frames in this app:
 #. Lattice frame: the reference frame attached to the lattice. 
@@ -133,15 +133,21 @@ Structure factor planes (U/V/Center)
 ------------------------------------
 The two vectors :math:`\mathbf{U}` and :math:`\mathbf{V}` span a plane in reciprocal space. The vector :math:`\mathbf{Q}_0` is the center of the plane. The U and V ranges control the size of the sampled plane in reciprocal space.
 
-- **U vector** — in r.l.u., defines one in-plane direction. For example, ``1,1,0`` means 
-.. math::
-   \mathbf{U} = 1\,\mathbf{a}^* + 1\,\mathbf{b}^* + 0\,\mathbf{c}^*
-- **V vector** — in r.l.u., defines the other in-plane direction. For example, ``0,0,1`` means 
-.. math::
-   \mathbf{V} = 0\,\mathbf{a}^* + 0\,\mathbf{b}^* + 1\,\mathbf{c}^*
-- **Center** — HKL coordinates of the plane’s center point. For example, ``2,2,2`` means 
-.. math::
-   \mathbf{Q}_0 = 2\,\mathbf{a}^* + 2\,\mathbf{b}^* + 2\,\mathbf{c}^*
+- **U vector** — in r.l.u., defines one in-plane direction. For example, ``1,1,0`` means
+
+  .. math::
+     \mathbf{U} = 1\,\mathbf{a}^* + 1\,\mathbf{b}^* + 0\,\mathbf{c}^*
+
+- **V vector** — in r.l.u., defines the other in-plane direction. For example, ``0,0,1`` means
+
+  .. math::
+     \mathbf{V} = 0\,\mathbf{a}^* + 0\,\mathbf{b}^* + 1\,\mathbf{c}^*
+
+- **Center** — HKL coordinates of the plane’s center point. For example, ``2,2,2`` means
+
+  .. math::
+     \mathbf{Q}_0 = 2\,\mathbf{a}^* + 2\,\mathbf{b}^* + 2\,\mathbf{c}^*
+
 - **U range / V range** — extents along U and V from the center (symmetric about the center) controlling the size of the sampled plane in reciprocal space.
 
 Use the U/V/Center inputs in the Structure Factor tab to pick an oriented plane through reciprocal space and set how wide the sampled region is along each in-plane axis.
