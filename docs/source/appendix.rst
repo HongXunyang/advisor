@@ -91,7 +91,7 @@ The total rotation matrix is given by:
 
    R_{\text{rotation}} = R_{\theta}\, R_{\chi}\,  R_{\phi}
 
-
+There is another angle **2θ** used in this app: This is the angle between the incident beam and the scattered/out-going beam. Beware that **2θ** is not twice the angle **θ**. We should treat **2θ** as a seperate angle. 
 
 
 
