@@ -126,6 +126,38 @@ def initialized_calculator(calculator_params):
     return calc
 
 
+# =============================================================================
+# UB-matrix / orientation-fitting test helpers
+# =============================================================================
+def consistent_diffraction_row(lattice_params, H, K, L, energy, theta=0.0, phi=0.0, chi=0.0):
+    """Build a diffraction-test row dict whose tth is computed so that the
+    reciprocal-vector magnitude |B.(H,K,L)| matches the observed scattering
+    vector magnitude at the given energy -- i.e. a row that could plausibly
+    correspond to SOME orientation, distinct from a hand-picked arbitrary
+    tth that would fail the magnitude-consistency validation check.
+
+    theta/phi/chi don't affect the vector's magnitude (only its direction),
+    so they can still be chosen freely by the caller.
+    """
+    from advisor.domain.geometry import energy_to_k_in, get_reciprocal_space_vectors
+
+    a_star, b_star, c_star = get_reciprocal_space_vectors(
+        lattice_params["a"], lattice_params["b"], lattice_params["c"],
+        lattice_params["alpha"], lattice_params["beta"], lattice_params["gamma"],
+    )
+    g = H * a_star + K * b_star + L * c_star
+    k_in = energy_to_k_in(energy)
+    ratio = np.linalg.norm(g) / (2 * k_in)
+    if abs(ratio) > 1.0:
+        raise ValueError(
+            f"HKL=({H},{K},{L}) is not reachable at energy={energy} eV for this lattice "
+            f"(|Q| required = {np.linalg.norm(g):.4f}, max reachable = {2 * k_in:.4f}); "
+            "use a higher energy or smaller HKL in the test."
+        )
+    tth = 2 * np.degrees(np.arcsin(ratio))
+    return {"H": H, "K": K, "L": L, "energy": energy, "tth": tth, "theta": theta, "phi": phi, "chi": chi}
+
+
 @pytest.fixture
 def make_calculator(no_rotation_euler, standard_energy):
     """

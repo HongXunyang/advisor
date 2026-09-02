@@ -1,11 +1,19 @@
+<<<<<<< HEAD
 """Shared fixtures for shared-UI (advisor/ui/) tests."""
+=======
+"""Shared fixtures for advisor/ui wiring tests (headless, offscreen Qt)."""
+>>>>>>> dev-ubmatrix
 import os
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+<<<<<<< HEAD
 from PyQt5.QtWidgets import QApplication
+=======
+from PyQt5.QtWidgets import QApplication, QMessageBox
+>>>>>>> dev-ubmatrix
 
 
 @pytest.fixture(scope="session")
@@ -18,3 +26,43 @@ def qapp():
     """
     app = QApplication.instance() or QApplication([])
     return app
+<<<<<<< HEAD
+=======
+
+
+@pytest.fixture
+def message_box_calls(monkeypatch):
+    """Capture QMessageBox.warning/critical/information calls instead of
+    showing a blocking modal dialog, so slot methods can be exercised
+    headlessly.
+
+    Each captured call is stored as its raw positional-argument tuple, e.g.
+    (parent, title, text), matching how the app code calls
+    QMessageBox.warning(self, title, text).
+    """
+
+    class Calls:
+        def __init__(self):
+            self.warnings = []
+            self.criticals = []
+            self.informations = []
+
+    calls = Calls()
+
+    def fake_warning(*args, **kwargs):
+        calls.warnings.append(args)
+        return QMessageBox.Ok
+
+    def fake_critical(*args, **kwargs):
+        calls.criticals.append(args)
+        return QMessageBox.Ok
+
+    def fake_information(*args, **kwargs):
+        calls.informations.append(args)
+        return QMessageBox.Ok
+
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(fake_warning))
+    monkeypatch.setattr(QMessageBox, "critical", staticmethod(fake_critical))
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(fake_information))
+    return calls
+>>>>>>> dev-ubmatrix

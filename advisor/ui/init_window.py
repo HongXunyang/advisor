@@ -8,9 +8,25 @@ from PyQt5.QtWidgets import (QDoubleSpinBox, QFileDialog, QFormLayout,
                              QMessageBox, QPushButton, QWidget)
 
 from advisor.domain import UnitConverter
+from advisor.domain.orientation_types import OrientationFitSession
 from advisor.ui.dialogs import DiffractionTestDialog
 from advisor.ui.utils import readcif
 from advisor.ui.visualizers import CoordinateVisualizer, UnitcellVisualizer
+
+
+class HighPrecisionSpinBox(QDoubleSpinBox):
+    """QDoubleSpinBox that stores/returns full internal precision (so
+    `setValue()` doesn't silently truncate a UB-matrix fit's precision --
+    see `decimals()` docs: it rounds the stored value, not just the display)
+    while only *displaying* a fixed, shorter number of decimals.
+    """
+
+    def __init__(self, display_decimals=2, parent=None):
+        super().__init__(parent)
+        self._display_decimals = display_decimals
+
+    def textFromValue(self, value):
+        return f"{value:.{self._display_decimals}f}"
 
 
 class DragDropLineEdit(QLineEdit):
@@ -79,7 +95,12 @@ class InitWindow(QWidget):
         self.unit_converter = UnitConverter()
         self._lattice_locked = False
         self._accepted_cif_path = None
-        self._ub_data = None
+        self._ub_session = OrientationFitSession()
+        # The fit actually backing the current Euler-angle fields/ub_data --
+        # distinct from self._ub_session.last_result, which is a draft/candidate
+        # that persists across Cancel for dialog-reopen convenience but must
+        # never itself be exported. Only set via an explicit Apply-and-Close.
+        self._applied_ub_result = None
         self.init_ui()
 
     def init_ui(self):
@@ -97,6 +118,7 @@ class InitWindow(QWidget):
         self.a_input.setRange(0.1, 100.0)
         self.a_input.setValue(5.0)
         self.a_input.setSuffix(" Å")
+        self.a_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("a:"), 0, 0)
         lattice_layout.addWidget(self.a_input, 0, 1)
 
@@ -104,6 +126,7 @@ class InitWindow(QWidget):
         self.b_input.setRange(0.1, 100.0)
         self.b_input.setValue(5.0)
         self.b_input.setSuffix(" Å")
+        self.b_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("b:"), 1, 0)
         lattice_layout.addWidget(self.b_input, 1, 1)
 
@@ -111,6 +134,7 @@ class InitWindow(QWidget):
         self.c_input.setRange(0.1, 100.0)
         self.c_input.setValue(5.0)
         self.c_input.setSuffix(" Å")
+        self.c_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("c:"), 2, 0)
         lattice_layout.addWidget(self.c_input, 2, 1)
 
@@ -120,6 +144,7 @@ class InitWindow(QWidget):
         self.alpha_input.setValue(90.0)
         self.alpha_input.setSuffix(" °")
         self.alpha_input.valueChanged.connect(self.update_visualization)
+        self.alpha_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("α:"), 0, 2)
         lattice_layout.addWidget(self.alpha_input, 0, 3)
 
@@ -128,6 +153,7 @@ class InitWindow(QWidget):
         self.beta_input.setValue(90.0)
         self.beta_input.setSuffix(" °")
         self.beta_input.valueChanged.connect(self.update_visualization)
+        self.beta_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("β:"), 1, 2)
         lattice_layout.addWidget(self.beta_input, 1, 3)
 
@@ -136,6 +162,7 @@ class InitWindow(QWidget):
         self.gamma_input.setValue(90.0)
         self.gamma_input.setSuffix(" °")
         self.gamma_input.valueChanged.connect(self.update_visualization)
+        self.gamma_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("γ:"), 2, 2)
         lattice_layout.addWidget(self.gamma_input, 2, 3)
 
@@ -185,27 +212,33 @@ class InitWindow(QWidget):
         euler_group = QGroupBox("Sample Orientation (Euler Angles)")
         euler_layout = QFormLayout(euler_group)
 
-        self.roll_input = QDoubleSpinBox()
+        self.roll_input = HighPrecisionSpinBox(display_decimals=2)
         self.roll_input.setObjectName("eulerAngleSpinBox")
         self.roll_input.setRange(-180.0, 180.0)
+        # Internal decimals stay high so setValue() doesn't silently truncate
+        # a UB-matrix fit's precision before it reaches BrillouinCalculator;
+        # only the displayed text (via HighPrecisionSpinBox) is 2 decimals.
+        self.roll_input.setDecimals(6)
         self.roll_input.setValue(0.0)
         self.roll_input.setSuffix(" °")
         self.roll_input.setToolTip("Rotation about the new X axis")
         self.roll_input.valueChanged.connect(self.update_visualization)
         euler_layout.addRow("Roll:", self.roll_input)
 
-        self.pitch_input = QDoubleSpinBox()
+        self.pitch_input = HighPrecisionSpinBox(display_decimals=2)
         self.pitch_input.setObjectName("eulerAngleSpinBox")
         self.pitch_input.setRange(-180.0, 180.0)
+        self.pitch_input.setDecimals(6)
         self.pitch_input.setValue(0.0)
         self.pitch_input.setSuffix(" °")
         self.pitch_input.setToolTip("Rotation about the new Y axis")
         self.pitch_input.valueChanged.connect(self.update_visualization)
         euler_layout.addRow("Pitch:", self.pitch_input)
 
-        self.yaw_input = QDoubleSpinBox()
+        self.yaw_input = HighPrecisionSpinBox(display_decimals=2)
         self.yaw_input.setObjectName("eulerAngleSpinBox")
         self.yaw_input.setRange(-180.0, 180.0)
+        self.yaw_input.setDecimals(6)
         self.yaw_input.setValue(0.0)
         self.yaw_input.setSuffix(" °")
         self.yaw_input.setToolTip("Rotation about the original Z axis")
@@ -284,6 +317,24 @@ class InitWindow(QWidget):
             self.file_path_input.setText(file_path)
             # on_cif_file_changed will be triggered by textChanged
 
+    def _invalidate_ub_session(self, *_args):
+        """Clear the stored UB-matrix diffraction measurements and any
+        fitted orientation, since they're no longer valid once the lattice
+        parameters (or the CIF they were derived from) change.
+
+        Also clears (and resets to 0) the Euler-angle fields if their
+        current values came from an applied UB fit (`self._applied_ub_result`)
+        -- otherwise a stale, now-orphaned orientation would silently remain
+        active with `ub_data=None`, no longer traceable to the fit that
+        produced it. Manually-entered Euler angles are left untouched.
+        """
+        self._ub_session.clear()
+        if self._applied_ub_result is not None:
+            self._applied_ub_result = None
+            self.roll_input.setValue(0.0)
+            self.pitch_input.setValue(0.0)
+            self.yaw_input.setValue(0.0)
+
     @pyqtSlot()
     def open_diffraction_test_dialog(self):
         """Open the diffraction test dialog to import orientation from measurements."""
@@ -297,9 +348,16 @@ class InitWindow(QWidget):
             "gamma": self.gamma_input.value(),
         }
 
-        # Open the dialog
-        dialog = DiffractionTestDialog(lattice_params, self)
-        if dialog.exec_() == DiffractionTestDialog.Accepted:
+        # Open the dialog, seeded with (and updating) this window's UB session
+        # so table rows and the last accepted fit survive close/reopen -- this
+        # is a *draft/candidate* state and persists across Cancel.
+        dialog = DiffractionTestDialog(lattice_params, self, session=self._ub_session)
+        accepted = dialog.exec_() == DiffractionTestDialog.Accepted
+        # dialog keeps self._ub_session in sync (rows + result) regardless of
+        # whether it was accepted or cancelled -- see DiffractionTestDialog.
+        self._ub_session = dialog.session
+
+        if accepted:
             result = dialog.get_result()
             if result is not None:
                 # Apply the calculated Sample orientation Euler angles
@@ -307,8 +365,11 @@ class InitWindow(QWidget):
                 self.pitch_input.setValue(result["pitch"])
                 self.yaw_input.setValue(result["yaw"])
                 # update_visualization will be triggered by valueChanged signals
-        
-        self._ub_data = result["ub_data"]
+
+                # Only an explicit Apply-and-Close sets the *applied* state
+                # that ub_data is derived from -- a merely-calculated-then-
+                # cancelled result must never reach _current_ub_data().
+                self._applied_ub_result = self._ub_session.last_result
 
     def set_lattice_inputs_enabled(self, enabled: bool):
         """Enable/disable lattice parameter inputs (a,b,c,alpha,beta,gamma)."""
@@ -439,6 +500,11 @@ class InitWindow(QWidget):
         self.beta_input.blockSignals(False)
         self.gamma_input.blockSignals(False)
 
+        # Signals were blocked above (to avoid multiple redraws), so this
+        # CIF-driven lattice change wouldn't otherwise reach the UB-session
+        # invalidation wired to valueChanged -- clear it explicitly.
+        self._invalidate_ub_session()
+
         # Update visualization with new parameters
         self.update_visualization()
 
@@ -497,6 +563,32 @@ class InitWindow(QWidget):
         except Exception as e:
             raise e
 
+    def _current_ub_data(self):
+        """The list[dict] of diffraction measurements behind the currently
+        applied Euler angles, for the `ub_data` application parameter --
+        or None if there is no still-applied, still-valid fit.
+
+        Deliberately reads `self._applied_ub_result`, NOT
+        `self._ub_session.last_result`: the session's last_result is a
+        draft/candidate that persists across Cancel purely so the dialog can
+        restore it on reopen -- it must never be exported just because it
+        was calculated. Only an explicit Apply-and-Close sets
+        `self._applied_ub_result` (see `open_diffraction_test_dialog`), and
+        `_invalidate_ub_session` clears it (and resets the Euler fields)
+        whenever the lattice/CIF changes or Reset is used, so a stale
+        orientation can never silently linger.
+        """
+        result = self._applied_ub_result
+        if result is None or not result.valid:
+            return None
+        current_lattice = {
+            "a": self.a_input.value(), "b": self.b_input.value(), "c": self.c_input.value(),
+            "alpha": self.alpha_input.value(), "beta": self.beta_input.value(), "gamma": self.gamma_input.value(),
+        }
+        if result.lattice_params != current_lattice:
+            return None  # defense in depth; _invalidate_ub_session should already have cleared this
+        return [m.to_dict() for m in result.measurements]
+
     @pyqtSlot()
     def initialize(self):
         """Initialize the application with the provided parameters."""
@@ -518,7 +610,7 @@ class InitWindow(QWidget):
                 "roll": self.roll_input.value(),
                 "pitch": self.pitch_input.value(),
                 "yaw": self.yaw_input.value(),
-                "ub_data": self._ub_data, # angles and HKL that were used to calculate the orientation from diffraction tests
+                "ub_data": self._current_ub_data(), # angles and HKL that were used to calculate the orientation from diffraction tests
             }
 
             self.initialized.emit(params)
@@ -593,4 +685,5 @@ class InitWindow(QWidget):
         self.file_path_input.blockSignals(False)
         self.set_lattice_inputs_enabled(True)
         self.clear_unitcell_visualization()
+        self._invalidate_ub_session()
         self.update_visualization()
