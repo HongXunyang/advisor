@@ -6,11 +6,31 @@ from matplotlib.backends.backend_qt5agg import \
 from matplotlib.figure import Figure
 
 
+def _format_magnitude(f_value: float) -> str:
+    """Format |F| with 3 significant figures.
+
+    Avoids rounding weak-but-nonzero reflections to a misleading "0.00".
+    """
+    if f_value == 0:
+        return "0"
+    return f"{f_value:.3g}"
+
+
+def _hkl_for_plane_point(xi, yi, x_key: str, y_key: str, f_key: str, fixed_value) -> dict:
+    """Reconstruct the H, K, L integer indices for one point on a fixed-index plane."""
+    values = {"H": None, "K": None, "L": None}
+    values[x_key] = int(round(float(xi)))
+    values[y_key] = int(round(float(yi)))
+    values[f_key] = int(fixed_value)
+    return values
+
+
 class StructureFactorVisualizer2D(FigureCanvas):
     """2D visualizer that shows a sliced plane of HKL with fixed index.
 
     The canvas renders a 2D scatter where marker size and color scale with
-    the magnitude of the structure factor.
+    the magnitude of the structure factor. Hovering over a visible point
+    shows a compact |F| tooltip; hover state is rebuilt on every redraw.
     """
 
     def __init__(self, width: float = 5.0, height: float = 4.0, dpi: int = 100):
@@ -20,6 +40,20 @@ class StructureFactorVisualizer2D(FigureCanvas):
         self._colorbar = None
         self._initialized = True
 
+        # Hover state: rebuilt from scratch on every draw (see visualize_plane /
+        # visualize_uv_plane_points / clear_plot). _hover_records is index-aligned
+        # with the points actually passed to ax.scatter() so hover always reflects
+        # the original data, never marker size/color or rounded text labels.
+        self._hover_records = []
+        self._hover_index = None
+        self._hover_annotation = None
+        self._hover_radius_px = 12
+
+        # Connected once, on the canvas (not the axes) — these survive fig.clear()
+        # and never need to be reconnected on redraw.
+        self.mpl_connect("motion_notify_event", self._on_hover_motion)
+        self.mpl_connect("axes_leave_event", self._on_axes_leave)
+
     def clear_plot(self):
         try:
             if self._colorbar is not None:
@@ -27,6 +61,9 @@ class StructureFactorVisualizer2D(FigureCanvas):
                 self._colorbar = None
             self.fig.clear()
             self.axes = self.fig.add_subplot(111)
+            self._hover_records = []
+            self._hover_index = None
+            self._hover_annotation = None
             # Default range 0..5 with ±0.5 padding
             self.axes.set_xlim(-0.5, 5.5)
             self.axes.set_ylim(-0.5, 5.5)
@@ -34,6 +71,71 @@ class StructureFactorVisualizer2D(FigureCanvas):
         except Exception:
             # Keep UI responsive even if clear fails
             pass
+
+    def _new_hover_annotation(self, ax):
+        """Create a hidden tooltip annotation on a freshly created axes.
+
+        ``in_layout=False`` is essential: with tight_layout active on this
+        figure, an annotation left in the layout calculation makes the axes
+        visibly shrink/grow (rescale) every time the tooltip appears/moves
+        near an edge, since tight_layout would otherwise expand the figure
+        margins to keep the tooltip's bounding box on-canvas.
+        """
+        return ax.annotate(
+            "",
+            xy=(0, 0),
+            xytext=(0, 12),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            bbox=dict(boxstyle="round,pad=0.3", fc="lightyellow", ec="gray", alpha=0.95),
+            visible=False,
+            zorder=20,
+            in_layout=False,
+        )
+
+    def _on_hover_motion(self, event):
+        """Show/update/hide the hover tooltip based on cursor proximity to a point.
+
+        Hit-testing is pixel-distance-based (via transData), not
+        PathCollection.contains(), so weak/near-zero-size markers keep a
+        usable hit area without being visually enlarged.
+        """
+        if event.inaxes is not self.axes or not self._hover_records:
+            self._hide_tooltip()
+            return
+
+        xs = np.array([r["x"] for r in self._hover_records])
+        ys = np.array([r["y"] for r in self._hover_records])
+        pixel_coords = self.axes.transData.transform(np.column_stack([xs, ys]))
+        distances = np.hypot(pixel_coords[:, 0] - event.x, pixel_coords[:, 1] - event.y)
+        nearest_idx = int(np.argmin(distances))
+
+        if distances[nearest_idx] > self._hover_radius_px:
+            self._hide_tooltip()
+            return
+
+        if nearest_idx == self._hover_index:
+            return  # already showing this point; avoid redundant redraw
+
+        record = self._hover_records[nearest_idx]
+        text = f"|F|: {_format_magnitude(record['f'])}"
+        self._hover_annotation.xy = (record["x"], record["y"])
+        self._hover_annotation.set_text(text)
+        self._hover_annotation.set_visible(True)
+        self._hover_index = nearest_idx
+        self.draw_idle()
+
+    def _on_axes_leave(self, event):
+        self._hide_tooltip()
+
+    def _hide_tooltip(self):
+        if self._hover_index is not None:
+            self._hover_index = None
+            if self._hover_annotation is not None:
+                self._hover_annotation.set_visible(False)
+            self.draw_idle()
 
     def visualize_uv_plane_points(
         self,
@@ -54,8 +156,6 @@ class StructureFactorVisualizer2D(FigureCanvas):
             vector_center: a vector for center of the plane (e.g. [0,0,0])
         """
         try:
-            import numpy as np
-
             if len(uv_points) == 0:
                 return False
             u = np.array([p['u'] for p in uv_points])
@@ -74,6 +174,8 @@ class StructureFactorVisualizer2D(FigureCanvas):
             self.fig.clear()
             ax = self.fig.add_subplot(111)
             self.axes = ax
+            self._hover_annotation = self._new_hover_annotation(ax)
+            self._hover_index = None
 
             # Normalize sizes
             min_size, max_size = 0, 300
@@ -90,12 +192,17 @@ class StructureFactorVisualizer2D(FigureCanvas):
 
             sc = ax.scatter(u_plot, v_plot, c=f_plot, s=sizes, cmap="viridis", alpha=0.9, vmax=value_max)
 
-            # Labels per point with HKL
+            # Labels per point with HKL, and hover records for plotted (unmasked) points
+            self._hover_records = []
             for i, p in enumerate(uv_points):
                 if mask[i]:
                     color_font = "silver"
                 else:
                     color_font = "black"
+                    self._hover_records.append({
+                        "H": p['H'], "K": p['K'], "L": p['L'],
+                        "f": float(f[i]), "x": float(u[i]), "y": float(v[i]),
+                    })
                 ax.text(
                     p['u'] + 0.05,
                     p['v'] + 0.05,
@@ -203,6 +310,8 @@ class StructureFactorVisualizer2D(FigureCanvas):
             self.fig.clear()
             ax = self.fig.add_subplot(111)
             self.axes = ax
+            self._hover_annotation = self._new_hover_annotation(ax)
+            self._hover_index = None
 
             # Normalize for size
             min_size, max_size = 0, 300
@@ -219,20 +328,24 @@ class StructureFactorVisualizer2D(FigureCanvas):
 
             sc = ax.scatter(x_plot, y_plot, c=f_plot, s=sizes, cmap="viridis", alpha=0.9, vmax=value_max)
 
-            # Add labels for each point (e.g., integer coordinates)
+            # Add labels for each point (e.g., integer coordinates), and hover
+            # records for plotted (unmasked) points, from the same reconstructed
+            # HKL so the two can never drift out of sync.
             x_key = x_label.upper()
             y_key = y_label.upper()
             f_key = fixed_name.upper()
-            
+
+            self._hover_records = []
             for i, (xi, yi) in enumerate(zip(x, y)):
+                values = _hkl_for_plane_point(xi, yi, x_key, y_key, f_key, fixed_value)
                 if mask[i]:
                     color_font = "silver"
                 else:
                     color_font = "black"
-                values = {"H": None, "K": None, "L": None}
-                values[x_key] = int(round(float(xi)))
-                values[y_key] = int(round(float(yi)))
-                values[f_key] = int(fixed_value)
+                    self._hover_records.append({
+                        "H": values["H"], "K": values["K"], "L": values["L"],
+                        "f": float(f[i]), "x": float(xi), "y": float(yi),
+                    })
                 ax.text(
                     xi + 0.05,
                     yi + 0.05,
@@ -266,5 +379,3 @@ class StructureFactorVisualizer2D(FigureCanvas):
             return True
         except Exception:
             return False
-
-

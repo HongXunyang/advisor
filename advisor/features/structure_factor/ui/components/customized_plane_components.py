@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
+import os
+
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFormLayout,
@@ -8,6 +10,10 @@ from PyQt5.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFormLayout,
                              QLineEdit, QPushButton, QSpinBox, QVBoxLayout,
                              QWidget)
 
+from advisor.features.structure_factor.domain import generate_hkl_range
+from advisor.features.structure_factor.domain.structure_factor_calculator import (
+    SCATTERING_TYPE,
+)
 from advisor.ui.visualizers import (StructureFactorVisualizer2D,
                                     StructureFactorVisualizer3D)
 
@@ -19,6 +25,7 @@ class CustomizedPlaneControls(QWidget):
     
     initializeClicked = pyqtSignal()
     parametersChanged = pyqtSignal()  # Emitted when any parameter changes
+    exportClicked = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -84,15 +91,22 @@ class CustomizedPlaneControls(QWidget):
         ranges_layout.addWidget(self.v_range_spin)
         config_layout.addRow("", ranges_row)
         
-        # Calculate Structure Factor button and status
+        # Calculate Structure Factor + Export buttons, side by side
         self.init_btn = QPushButton("Calculate Structure Factor")
         self.init_btn.clicked.connect(self.initializeClicked.emit)
-        
+        self.export_btn = QPushButton("Export")
+        self.export_btn.clicked.connect(self.exportClicked.emit)
+
         self.status_label = QLabel("Status: Provide CIF in initialization window, then initialize")
         self.status_label.setStyleSheet("color: orange; font-weight: bold;")
         config_layout.addRow("", self.status_label)
-        
-        config_layout.addRow("", self.init_btn)
+
+        btn_row = QWidget()
+        btn_row_layout = QHBoxLayout(btn_row)
+        btn_row_layout.setContentsMargins(0, 0, 0, 0)
+        btn_row_layout.addWidget(self.init_btn)
+        btn_row_layout.addWidget(self.export_btn)
+        config_layout.addRow("", btn_row)
         
         layout.addWidget(config_group)
         
@@ -435,6 +449,9 @@ class CustomizedPlaneWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.calculator = None  # Will be set by parent
+        # Immutable snapshot of what the UV plane last successfully
+        # calculated, captured at draw time -- see get_current_snapshot().
+        self._snapshot = None
         self.init_ui()
         
     def init_ui(self):
@@ -473,7 +490,26 @@ class CustomizedPlaneWidget(QWidget):
     def get_controls(self):
         """Get the controls widget."""
         return self.controls
-        
+
+    def _snapshot_for(self, hkl_points, sf_values, f_000_magnitude):
+        """Build an immutable ReflectionSnapshot from a just-completed calculation.
+
+        Captured once per draw, from the exact hkl_points/sf_values that fed
+        the plot, so a later Export reads back this data instead of
+        recomputing through the shared calculator (which may since have
+        been reinitialized at a different energy).
+        """
+        from advisor.features.structure_factor.domain import (
+            ReflectionSnapshot, build_reflections)
+        return ReflectionSnapshot(
+            reflections=tuple(build_reflections(hkl_points, sf_values)),
+            f_000_magnitude=float(f_000_magnitude) if f_000_magnitude is not None else 0.0,
+            cif_filename=os.path.basename(self.calculator.cif_file_path),
+            energy_kev=self.calculator.energy / 1000.0,
+            scattering_type=SCATTERING_TYPE,
+        )
+
+
     @staticmethod
     def _generate_hkl_cube(h_range, k_range, l_range):
         """Generate a full integer HKL grid covering the given ranges.
@@ -483,12 +519,7 @@ class CustomizedPlaneWidget(QWidget):
             k_range: (min, max) inclusive range for K.
             l_range: (min, max) inclusive range for L.
         """
-        cube = []
-        for h in range(h_range[0], h_range[1] + 1):
-            for k in range(k_range[0], k_range[1] + 1):
-                for l in range(l_range[0], l_range[1] + 1):
-                    cube.append([h, k, l])
-        return cube
+        return [list(p) for p in generate_hkl_range(h_range, k_range, l_range, exclude_origin=False)]
 
     @pyqtSlot()
     def update_plots(self):
@@ -551,6 +582,7 @@ class CustomizedPlaneWidget(QWidget):
                         float(np.max(np.abs(sf_plane))) if len(sf_plane) > 0 else None
                     )
                 )
+                self._snapshot = self._snapshot_for(hkl_points, sf_plane, value_max)
                 u_label = f"[{U[0]} {U[1]} {U[2]}]"
                 v_label = f"[{V[0]} {V[1]} {V[2]}]"
                 self.plane_2d.visualize_uv_plane_points(
@@ -565,7 +597,17 @@ class CustomizedPlaneWidget(QWidget):
         """Clear all plots."""
         self.plane_2d.clear_plot()
         self.plane_3d.clear_plot()
+        self._snapshot = None
 
     def get_energy_ev(self):
         """Get the energy in eV."""
         return self.controls.get_energy_ev()
+
+    def get_current_snapshot(self):
+        """Return the ReflectionSnapshot for the customized UV plane.
+
+        Returns None if it has never been successfully calculated (e.g.
+        the calculator was never initialized), rather than silently
+        recomputing anything.
+        """
+        return self._snapshot

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
+import os
+
 from PyQt5.QtWidgets import (
     QWidget,
     QGridLayout,
@@ -17,6 +19,9 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 import numpy as np
 
+from advisor.features.structure_factor.domain.structure_factor_calculator import (
+    SCATTERING_TYPE,
+)
 from advisor.ui.visualizers import StructureFactorVisualizer3D, StructureFactorVisualizer2D
 
 
@@ -59,6 +64,7 @@ class HKLPlaneControls(QWidget):
     initializeClicked = pyqtSignal()
     planeChanged = pyqtSignal(str)  # Emits "HK", "HL", or "KL"
     energyChanged = pyqtSignal(float)  # Emits energy in eV
+    exportClicked = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -98,10 +104,17 @@ class HKLPlaneControls(QWidget):
         toggle_layout.addWidget(self.kl_toggle_btn)
         config_layout.addRow("Plane:", toggle_row)
         
-        # Initialize button
+        # Initialize + Export buttons, side by side
+        init_row = QWidget()
+        init_row_layout = QHBoxLayout(init_row)
+        init_row_layout.setContentsMargins(0, 0, 0, 0)
         self.init_btn = QPushButton("Initialize Calculator")
         self.init_btn.clicked.connect(self.initializeClicked.emit)
-        config_layout.addRow("", self.init_btn)
+        self.export_btn = QPushButton("Export")
+        self.export_btn.clicked.connect(self.exportClicked.emit)
+        init_row_layout.addWidget(self.init_btn)
+        init_row_layout.addWidget(self.export_btn)
+        config_layout.addRow("", init_row)
         
         # Status label
         self.status_label = QLabel("Status: Provide CIF in initialization window, then initialize")
@@ -250,6 +263,11 @@ class HKLPlane2DWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.grid_max = 5  # inclusive max for varying integer indices
+        # Immutable snapshot of what each plane last successfully calculated,
+        # captured at draw time -- see get_current_snapshot().
+        self._hk_snapshot = None
+        self._hl_snapshot = None
+        self._kl_snapshot = None
         self.init_ui()
         
     def init_ui(self):
@@ -335,6 +353,34 @@ class HKLPlane2DWidget(QWidget):
                 points.append([values["H"], values["K"], values["L"]])
         return points
         
+    def _snapshot_for(self, calculator, hkl_list, results, f_000_magnitude):
+        """Build an immutable ReflectionSnapshot from a just-completed calculation.
+
+        Captured once per draw, from the exact hkl_list/results that fed the
+        plot, so a later Export reads back this data instead of recomputing
+        through the shared calculator (which may since have been
+        reinitialized at a different energy).
+        """
+        from advisor.features.structure_factor.domain import (
+            ReflectionSnapshot, build_reflections)
+        return ReflectionSnapshot(
+            reflections=tuple(build_reflections(hkl_list, results)),
+            f_000_magnitude=float(f_000_magnitude) if f_000_magnitude is not None else 0.0,
+            cif_filename=os.path.basename(calculator.cif_file_path),
+            energy_kev=calculator.energy / 1000.0,
+            scattering_type=SCATTERING_TYPE,
+        )
+
+    def get_current_snapshot(self):
+        """Return the ReflectionSnapshot for the currently active plane.
+
+        Returns None if that plane has never been successfully calculated
+        (e.g. the calculator was never initialized), rather than silently
+        recomputing anything.
+        """
+        idx = self.plane_stack.currentIndex()
+        return (self._hk_snapshot, self._hl_snapshot, self._kl_snapshot)[idx]
+
     def update_hk_plane(self, calculator):
         """Update HK plane visualization."""
         if not calculator.is_initialized:
@@ -345,11 +391,12 @@ class HKLPlane2DWidget(QWidget):
         # Reference value for color scale
         ref = calculator.calculate_structure_factors([[0, 0, 0]])
         value_max = float(np.abs(ref[0])) if len(ref) > 0 else None
+        self._hk_snapshot = self._snapshot_for(calculator, hkl_list, results, value_max)
         arr = np.array(hkl_list)
         self.hk_visualizer.visualize_plane(
             arr[:, 0], arr[:, 1], np.abs(results), "H", "K", "L", L_val, value_max
         )
-        
+
     def update_hl_plane(self, calculator):
         """Update HL plane visualization."""
         if not calculator.is_initialized:
@@ -360,11 +407,12 @@ class HKLPlane2DWidget(QWidget):
         # Reference value for color scale
         ref = calculator.calculate_structure_factors([[0, 0, 0]])
         value_max = float(np.abs(ref[0])) if len(ref) > 0 else None
+        self._hl_snapshot = self._snapshot_for(calculator, hkl_list, results, value_max)
         arr = np.array(hkl_list)
         self.hl_visualizer.visualize_plane(
             arr[:, 0], arr[:, 2], np.abs(results), "H", "L", "K", K_val, value_max
         )
-        
+
     def update_kl_plane(self, calculator):
         """Update KL plane visualization."""
         if not calculator.is_initialized:
@@ -375,6 +423,7 @@ class HKLPlane2DWidget(QWidget):
         # Reference value for color scale
         ref = calculator.calculate_structure_factors([[0, 0, 0]])
         value_max = float(np.abs(ref[0])) if len(ref) > 0 else None
+        self._kl_snapshot = self._snapshot_for(calculator, hkl_list, results, value_max)
         arr = np.array(hkl_list)
         self.kl_visualizer.visualize_plane(
             arr[:, 1], arr[:, 2], np.abs(results), "K", "L", "H", H_val, value_max
@@ -385,3 +434,6 @@ class HKLPlane2DWidget(QWidget):
         self.hk_visualizer.clear_plot()
         self.hl_visualizer.clear_plot()
         self.kl_visualizer.clear_plot()
+        self._hk_snapshot = None
+        self._hl_snapshot = None
+        self._kl_snapshot = None
