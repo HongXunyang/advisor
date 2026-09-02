@@ -1,19 +1,11 @@
-<<<<<<< HEAD
 """Shared fixtures for shared-UI (advisor/ui/) tests."""
-=======
-"""Shared fixtures for advisor/ui wiring tests (headless, offscreen Qt)."""
->>>>>>> dev-ubmatrix
 import os
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-<<<<<<< HEAD
-from PyQt5.QtWidgets import QApplication
-=======
 from PyQt5.QtWidgets import QApplication, QMessageBox
->>>>>>> dev-ubmatrix
 
 
 @pytest.fixture(scope="session")
@@ -26,8 +18,6 @@ def qapp():
     """
     app = QApplication.instance() or QApplication([])
     return app
-<<<<<<< HEAD
-=======
 
 
 @pytest.fixture
@@ -65,4 +55,3 @@ def message_box_calls(monkeypatch):
     monkeypatch.setattr(QMessageBox, "critical", staticmethod(fake_critical))
     monkeypatch.setattr(QMessageBox, "information", staticmethod(fake_information))
     return calls
->>>>>>> dev-ubmatrix
