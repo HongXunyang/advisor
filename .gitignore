@@ -62,3 +62,11 @@ CLAUDE.md
 
 # --- Generated external-validation test data (regenerate via script) ---
 /tests/external_validation/
+
+
+# --- project files ---
+REQUIREMENTS.md
+PLAN.md
+IMPLEMENTATION_LOG.md
+REVIEW.md
+SUMMARY.md

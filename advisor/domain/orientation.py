@@ -2,218 +2,235 @@
 # -*- coding: utf-8 -*-
 """Orientation fitting from diffraction tests.
 
-This module provides functions to determine the optimal Euler angles (roll, pitch, yaw)
-that align a crystal lattice orientation with observed diffraction data.
+Determines the crystal orientation (roll, pitch, yaw and the U/UB matrices)
+that best explains a set of diffraction measurements (known HKL + measured
+goniometer angles), via a deterministic Kabsch/Wahba rotation-alignment
+solve rather than an iterative optimizer.
+
+For each measurement i:
+  1. g_i = B.[H_i,K_i,L_i]  -- the expected reciprocal-lattice vector, bare
+     (lattice frame, no orientation rotation applied).
+  2. q_i -- the observed scattering vector, rotated into the sample frame
+     (i.e. only the goniometer rotation is undone; the orientation U is
+     exactly what's being solved for). See
+     `orientation_validation.compute_measurement_vectors` for the exact
+     formula and its derivation/verification notes.
+  3. Solve q_i ~= U . g_i for the proper rotation U via SVD (Kabsch), using
+     all valid measurements at once -- no local minima, no restarts, no
+     initial guess.
+  4. U is converted to (roll, pitch, yaw) via `matrix_to_euler_zyx`
+     (ZYX convention, matching `euler_to_matrix`).
+  5. UB = U @ B is exposed alongside the Euler angles as a convenience.
+
+Fit quality is then independently verified by re-running the existing,
+already-tested forward angles->HKL calculation (via `OrientationCalculator`,
+which itself now shares its core formula with
+`scattering_geometry.domain.core._calculate_hkl` -- see
+`advisor.domain.geometry.calculate_scattering_vector`) at the fitted
+orientation, and comparing against the measured HKL values. This keeps the
+reported residual correct regardless of any subtlety in the Kabsch input
+derivation above.
+
+The previous multi-start L-BFGS-B optimizer has been retired from the
+shipped code; it lives on only as a regression reference in
+`tests/domain/test_legacy_optimizer_regression.py`.
+
+Weighting policy: g_i and q_i are used raw (unnormalized). The SVD solve
+therefore implicitly weights each measurement by |g_i|*|q_i| (both equal at
+a consistent measurement, since rotation preserves norm) -- higher-order/
+larger-|Q| reflections pull the fit harder than low-order ones. Fit
+*acceptance*, by contrast, uses the unweighted per-component H/K/L residual
+from the independent forward-recomputation step above, not the Kabsch
+objective directly -- so the quantity being minimized and the quantity
+being thresholded for validity are related but not identical. This was a
+deliberate choice (raw vectors, not normalized) rather than an oversight;
+it has not been observed to matter for the exact/near-exact data this
+solver is meant for, but would be worth revisiting if very mixed reflection
+orders or systematically noisy low-order measurements become common.
 """
+from __future__ import annotations
+
+from typing import Optional
 
 import numpy as np
-from scipy.optimize import minimize
 
-from .orientation_calculator import OrientationCalculator
+from advisor.domain.geometry import get_reciprocal_space_vectors, matrix_to_euler_zyx
+from advisor.domain.orientation_calculator import OrientationCalculator
+from advisor.domain.orientation_types import (
+    DiffractionMeasurement,
+    OrientationFitConfig,
+    OrientationFitResult,
+)
+from advisor.domain.orientation_validation import (
+    compute_measurement_vectors,
+    validate_lattice_params,
+    validate_measurements,
+)
 
-# Default number of random restarts for optimization
-DEFAULT_N_RESTARTS = 20
-# Target residual error - stop early if achieved
-TARGET_RESIDUAL = 1e-10
+_LATTICE_KEYS = ("a", "b", "c", "alpha", "beta", "gamma")
+
+
+def _solve_kabsch(g_stack: np.ndarray, q_stack: np.ndarray):
+    """Solve for the proper rotation U minimizing sum_i ||q_i - U g_i||^2.
+
+    Returns (U, condition_number), where condition_number is the ratio of
+    the largest to smallest singular value of the cross-covariance matrix
+    (a measure of how well-conditioned/independent the measurement set is;
+    large values mean the measurements are close to degenerate).
+
+    With exactly 2 measurements the 3x3 cross-covariance is a sum of two
+    rank-1 terms, so its smallest singular value is *structurally* ~0
+    regardless of how well-separated the two measurements are -- two
+    non-parallel vector pairs still determine a unique proper rotation via
+    the same SVD/determinant-fixup procedure. condition_number is therefore
+    None (not a numerically-meaningless "inf") whenever there are fewer than
+    3 measurements, since it isn't an informative diagnostic in that case.
+    """
+    cross_covariance = g_stack.T @ q_stack  # sum_i outer(g_i, q_i)
+    w, singular_values, vt = np.linalg.svd(cross_covariance)
+    v = vt.T
+    d = np.sign(np.linalg.det(v @ w.T))
+    if d == 0:
+        d = 1.0
+    fixup = np.diag([1.0, 1.0, d])
+    rotation = v @ fixup @ w.T
+
+    if g_stack.shape[0] < 3:
+        condition_number = None
+    else:
+        smallest = singular_values[-1]
+        condition_number = float(singular_values[0] / smallest) if smallest > 1e-12 else float("inf")
+    return rotation, condition_number
 
 
 def fit_orientation_from_diffraction_tests(
     lattice_params: dict,
     diffraction_tests: list,
-    initial_guess: tuple = (0.0, 0.0, 0.0),
-    n_restarts: int = DEFAULT_N_RESTARTS,
-) -> dict:
+    config: Optional[OrientationFitConfig] = None,
+) -> OrientationFitResult:
     """Fit crystal orientation from diffraction test data.
 
-    Given lattice parameters and a list of diffraction tests (each containing
-    known HKL values and measured angles), find the Euler angles (roll, pitch, yaw)
-    that best explain the observations.
-
-    Uses multiple random restarts to avoid local minima.
+    Breaking change from prior releases: this used to return a plain dict
+    and accept `initial_guess`/`n_restarts` parameters (for the retired
+    L-BFGS-B optimizer). It now returns an `OrientationFitResult` dataclass
+    and takes an optional `OrientationFitConfig` instead. This function is
+    re-exported from `advisor.domain` and is technically importable by
+    external code, but it has no documented usage examples outside this
+    package and no compatibility shim is provided -- see CHANGELOG.md.
 
     Args:
-        lattice_params: Dictionary containing lattice parameters:
-            - a, b, c (float): Lattice constants in Angstroms
-            - alpha, beta, gamma (float): Lattice angles in degrees
-        diffraction_tests: List of dictionaries, each containing:
-            - H, K, L (float): Expected Miller indices
-            - energy (float): X-ray energy in eV
-            - tth (float): Scattering angle 2θ in degrees
-            - theta (float): Sample theta rotation in degrees
-            - phi (float): Sample phi rotation in degrees
-            - chi (float): Sample chi rotation in degrees
-        initial_guess: Initial guess for (roll, pitch, yaw) in degrees
-        n_restarts: Number of random restarts to try (default: 20)
+        lattice_params: dict with a, b, c (Angstrom) and alpha, beta, gamma (degrees).
+        diffraction_tests: list of dicts, each with H, K, L, energy, tth, theta, phi, chi.
+        config: optional OrientationFitConfig overriding the default tolerances.
 
     Returns:
-        dict: Dictionary containing:
-            - roll, pitch, yaw (float): Optimized Euler angles in degrees
-            - residual_error (float): Final residual error (sum of squared HKL differences)
-            - individual_errors (list): Per-test HKL errors
-            - success (bool): Whether optimization converged
-            - message (str): Status message
+        OrientationFitResult. Only use the Euler angles / UB matrix when
+        `result.valid` is True.
     """
+    config = config or OrientationFitConfig()
 
-    if not diffraction_tests:
-        return {
-            "success": False,
-            "message": "No diffraction tests provided",
-            "roll": 0.0,
-            "pitch": 0.0,
-            "yaw": 0.0,
-        }
+    try:
+        lattice_clean = {k: float(lattice_params[k]) for k in _LATTICE_KEYS}
+    except (KeyError, TypeError, ValueError) as exc:
+        return OrientationFitResult(
+            completed=False, identifiable=False, valid=False,
+            message=f"Invalid lattice parameters: {exc}",
+            rejection_reason=str(exc),
+            lattice_params=dict(lattice_params) if isinstance(lattice_params, dict) else {},
+        )
 
-    # Validate diffraction tests
-    required_keys = ["H", "K", "L", "energy", "tth", "theta", "phi", "chi"]
-    for i, test in enumerate(diffraction_tests):
-        missing = [k for k in required_keys if k not in test]
-        if missing:
-            return {
-                "success": False,
-                "message": f"Test {i+1} is missing required keys: {missing}",
-                "roll": 0.0,
-                "pitch": 0.0,
-                "yaw": 0.0,
-            }
+    lattice_ok, lattice_reason = validate_lattice_params(lattice_clean)
+    if not lattice_ok:
+        return OrientationFitResult(
+            completed=False, identifiable=False, valid=False,
+            message=f"Invalid lattice parameters: {lattice_reason}",
+            rejection_reason=lattice_reason,
+            lattice_params=lattice_clean,
+        )
 
-    # Initialize calculator with lattice parameters (using initial roll, pitch, yaw = 0)
-    calculator = OrientationCalculator()
-    init_params = {
-        "a": lattice_params["a"],
-        "b": lattice_params["b"],
-        "c": lattice_params["c"],
-        "alpha": lattice_params["alpha"],
-        "beta": lattice_params["beta"],
-        "gamma": lattice_params["gamma"],
-        "energy": diffraction_tests[0]["energy"],  # Will be updated per test
-        "roll": 0.0,
-        "pitch": 0.0,
-        "yaw": 0.0,
-    }
-
-    if not calculator.initialize(init_params):
-        return {
-            "success": False,
-            "message": "Failed to initialize calculator with given lattice parameters",
-            "roll": 0.0,
-            "pitch": 0.0,
-            "yaw": 0.0,
-        }
-
-    def objective(params):
-        """Objective function: sum of squared HKL errors."""
-        roll, pitch, yaw = params
-        calculator.reorient_sample(roll, pitch, yaw)
-
-        total_error = 0.0
-        for test in diffraction_tests:
-            # Update energy for this test
-            calculator.change_energy(test["energy"])
-
-            # Calculate HKL from angles
-            result = calculator.calculate_hkl(
-                test["tth"], test["theta"], test["phi"], test["chi"]
+    measurements = []
+    for i, raw in enumerate(diffraction_tests):
+        try:
+            measurements.append(DiffractionMeasurement.from_dict(raw))
+        except (KeyError, TypeError, ValueError) as exc:
+            return OrientationFitResult(
+                completed=False, identifiable=False, valid=False,
+                message=f"Measurement {i + 1} is malformed: {exc}",
+                rejection_reason=str(exc),
+                lattice_params=lattice_clean,
             )
 
-            # Compute squared error
-            dH = result["H"] - test["H"]
-            dK = result["K"] - test["K"]
-            dL = result["L"] - test["L"]
-            total_error += dH**2 + dK**2 + dL**2
-
-        return total_error
-
-    def run_optimization(start_point):
-        """Run a single optimization from a starting point."""
-        return minimize(
-            objective,
-            start_point,
-            method="L-BFGS-B",
-            bounds=[(-180, 180), (-180, 180), (-180, 180)],
-            options={"ftol": 1e-12, "gtol": 1e-10, "maxiter": 1000},
+    identifiable, reason = validate_measurements(lattice_clean, measurements, config)
+    if not identifiable:
+        return OrientationFitResult(
+            completed=True, identifiable=False, valid=False,
+            message=reason,
+            rejection_reason=reason,
+            lattice_params=lattice_clean,
+            measurements=measurements,
+            n_measurements_used=len(measurements),
         )
 
-    # Multiple random restarts to find global minimum
-    best_result = None
-    best_error = float("inf")
+    try:
+        vectors = [compute_measurement_vectors(lattice_clean, m) for m in measurements]
+        g_stack = np.array([g for g, _ in vectors])
+        q_stack = np.array([q for _, q in vectors])
 
-    # First try the user-provided initial guess
-    initial_points = [initial_guess]
+        rotation, condition_number = _solve_kabsch(g_stack, q_stack)
+        roll, pitch, yaw = matrix_to_euler_zyx(rotation)
 
-    # Add random starting points
-    rng = np.random.default_rng(seed=42)  # Reproducible results
-    for _ in range(n_restarts - 1):
-        # Random angles in [-180, 180]
-        random_point = tuple(rng.uniform(-180, 180, 3))
-        initial_points.append(random_point)
+        a_star, b_star, c_star = get_reciprocal_space_vectors(**lattice_clean)
+        b_matrix = np.column_stack([a_star, b_star, c_star])
+        ub_matrix = rotation @ b_matrix
 
-    # Also add some structured starting points
-    structured_points = [
-        (0, 0, 0),
-        (90, 0, 0), (-90, 0, 0),
-        (0, 90, 0), (0, -90, 0),
-        (0, 0, 90), (0, 0, -90),
-    ]
-    for pt in structured_points:
-        if pt not in initial_points:
-            initial_points.append(pt)
+        calculator = OrientationCalculator()
+        if not calculator.initialize({
+            **lattice_clean, "energy": measurements[0].energy,
+            "roll": roll, "pitch": pitch, "yaw": yaw,
+        }):
+            return OrientationFitResult(
+                completed=False, identifiable=True, valid=False,
+                message="Failed to initialize calculator for residual verification.",
+                rejection_reason="calculator_init_failed",
+                lattice_params=lattice_clean, measurements=measurements,
+                n_measurements_used=len(measurements),
+            )
 
-    # Run optimization from each starting point
-    for start_point in initial_points:
-        try:
-            result = run_optimization(start_point)
-            if result.fun < best_error:
-                best_error = result.fun
-                best_result = result
+        per_measurement_residuals = []
+        for m in measurements:
+            calculator.change_energy(m.energy)
+            predicted = calculator.calculate_hkl(m.tth, m.theta, m.phi, m.chi)
+            d_h = predicted["H"] - m.H
+            d_k = predicted["K"] - m.K
+            d_l = predicted["L"] - m.L
+            per_measurement_residuals.append(float(np.sqrt(d_h**2 + d_k**2 + d_l**2)))
 
-            # Early stopping if we found a very good solution
-            if best_error < TARGET_RESIDUAL:
-                break
-        except Exception:
-            # Skip failed optimizations
-            continue
-
-    if best_result is None:
-        return {
-            "success": False,
-            "message": "All optimization attempts failed",
-            "roll": 0.0,
-            "pitch": 0.0,
-            "yaw": 0.0,
-        }
-
-    # Extract optimized parameters
-    roll_opt, pitch_opt, yaw_opt = best_result.x
-
-    # Calculate individual errors at optimal orientation
-    calculator.reorient_sample(roll_opt, pitch_opt, yaw_opt)
-    individual_errors = []
-    for test in diffraction_tests:
-        calculator.change_energy(test["energy"])
-        calc_result = calculator.calculate_hkl(
-            test["tth"], test["theta"], test["phi"], test["chi"]
+        residual_rms = float(np.sqrt(np.mean(np.square(per_measurement_residuals))))
+    except Exception as exc:  # pragma: no cover - defensive; SVD/init on finite input shouldn't fail
+        return OrientationFitResult(
+            completed=False, identifiable=True, valid=False,
+            message=f"Orientation fit failed unexpectedly: {exc}",
+            rejection_reason=str(exc),
+            lattice_params=lattice_clean, measurements=measurements,
+            n_measurements_used=len(measurements),
         )
-        error = {
-            "H_expected": test["H"],
-            "K_expected": test["K"],
-            "L_expected": test["L"],
-            "H_calculated": calc_result["H"],
-            "K_calculated": calc_result["K"],
-            "L_calculated": calc_result["L"],
-            "H_error": calc_result["H"] - test["H"],
-            "K_error": calc_result["K"] - test["K"],
-            "L_error": calc_result["L"] - test["L"],
-        }
-        individual_errors.append(error)
 
-    return {
-        "success": best_result.success,
-        "message": best_result.message if hasattr(best_result, "message") else "Optimization completed",
-        "roll": float(roll_opt),
-        "pitch": float(pitch_opt),
-        "yaw": float(yaw_opt),
-        "residual_error": float(best_result.fun),
-        "individual_errors": individual_errors,
-        "n_iterations": best_result.nit if hasattr(best_result, "nit") else None,
-        "n_restarts_used": len(initial_points),
-    }
+    valid = residual_rms < config.residual_rms_threshold
+    message = (
+        "Orientation fit accepted."
+        if valid
+        else (
+            f"Fit completed but residual RMS ({residual_rms:.3e} r.l.u.) exceeds "
+            f"the acceptance threshold ({config.residual_rms_threshold:.3e} r.l.u.)."
+        )
+    )
+
+    return OrientationFitResult(
+        completed=True, identifiable=True, valid=valid,
+        message=message,
+        rejection_reason=None if valid else "residual_too_large",
+        U=rotation, UB=ub_matrix, roll=roll, pitch=pitch, yaw=yaw,
+        residual_rms=residual_rms, per_measurement_residuals=per_measurement_residuals,
+        n_measurements_used=len(measurements), condition_number=condition_number,
+        lattice_params=lattice_clean, measurements=measurements,
+    )

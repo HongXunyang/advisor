@@ -2,13 +2,17 @@
 # -*- coding: utf-8 -*-
 """Dialog for importing orientation from diffraction test data."""
 
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QDialog, QDoubleSpinBox, QFormLayout, QGroupBox,
                              QHBoxLayout, QHeaderView, QLabel, QMessageBox,
                              QPushButton, QTableWidget, QTableWidgetItem,
                              QVBoxLayout)
 
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
+from advisor.domain.orientation_types import DiffractionMeasurement, OrientationFitSession
+
+_TABLE_COLUMNS = ("H", "K", "L", "energy", "tth", "theta", "chi", "phi")
+_DEFAULT_ROW_VALUES = (0.0, 0.0, 0.0, 2200.0, 90.0, 45.0, 0.0, 0.0)
 
 
 class DiffractionTestDialog(QDialog):
@@ -17,18 +21,31 @@ class DiffractionTestDialog(QDialog):
     This dialog allows users to input multiple diffraction tests (H, K, L, energy,
     tth, theta, phi, chi) and calculates the optimal Euler angles (roll, pitch, yaw)
     that best fit the data.
-    """ 
 
-    def __init__(self, lattice_params: dict, parent=None):
+    Table rows and the last accepted result are held in an `OrientationFitSession`
+    (see `advisor.domain.orientation_types`), owned by the caller (`InitWindow`)
+    and passed in so the dialog can be re-opened with its previous state intact,
+    regardless of whether it was previously closed via Cancel or Apply. The
+    session is kept in sync (`self.session`) whenever the dialog closes, so the
+    caller should re-read `self.session` after `exec_()` rather than only
+    `get_result()`.
+    """
+
+    def __init__(self, lattice_params: dict, parent=None, session: OrientationFitSession = None):
         """Initialize the dialog.
 
         Args:
             lattice_params: Dictionary containing lattice parameters (a, b, c, alpha, beta, gamma)
             parent: Parent widget
+            session: Optional OrientationFitSession to restore table rows and the
+                last accepted fit from (e.g. from a previous time this dialog was
+                opened in this Init Window session). A fresh session is created
+                if not provided.
         """
         super().__init__(parent)
         self.lattice_params = lattice_params
-        self.result = None  # Will store (roll, pitch, yaw) on success
+        self.session = session if session is not None else OrientationFitSession()
+        self.result = None  # dict with roll/pitch/yaw/ub_data, set only on a successful Calculate
 
         self.setWindowTitle("Import Orientation from UB Matrix Tests")
         self.setMinimumWidth(800)
@@ -43,7 +60,7 @@ class DiffractionTestDialog(QDialog):
         # Instructions label
         instructions = QLabel(
             "Enter UB matrix test (diffraction test) data below. Each row represents a measurement "
-            "with known HKL indices and measured angles. At least one test is required."
+            "with known HKL indices and measured angles. At least two non-parallel tests are required."
         )
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
@@ -60,9 +77,13 @@ class DiffractionTestDialog(QDialog):
         for i in range(8):
             header.setSectionResizeMode(i, QHeaderView.Stretch)
 
-        # Add initial empty rows
-        self._add_row()
-        self._add_row()
+        # Restore rows from the session, if any; otherwise start with two blank rows.
+        if self.session.measurements:
+            for measurement in self.session.measurements:
+                self._add_row(measurement)
+        else:
+            self._add_row()
+            self._add_row()
 
         layout.addWidget(self.table)
 
@@ -70,7 +91,7 @@ class DiffractionTestDialog(QDialog):
         row_buttons_layout = QHBoxLayout()
 
         add_row_btn = QPushButton("Add Row")
-        add_row_btn.clicked.connect(self._add_row)
+        add_row_btn.clicked.connect(lambda: self._add_row())
         row_buttons_layout.addWidget(add_row_btn)
 
         remove_row_btn = QPushButton("Remove Selected Row")
@@ -130,6 +151,22 @@ class DiffractionTestDialog(QDialog):
 
         layout.addLayout(button_layout)
 
+        # Restore the last result, if it's still valid for the current lattice
+        # parameters (defense in depth -- the caller is expected to clear the
+        # session already when lattice params change).
+        restorable = (
+            self.session.last_result is not None
+            and self.session.last_result.valid
+            and not self.session.is_stale_against(self.lattice_params)
+        )
+        if restorable:
+            self._show_result(self.session.last_result, announce=False)
+
+        # Connect edit-invalidation *after* the initial population above, so
+        # restoring rows/results from the session doesn't immediately mark
+        # itself stale.
+        self.table.itemChanged.connect(self._invalidate_result)
+
     def _set_button_highlighted(self, button: QPushButton, highlighted: bool):
         """Set button to highlighted (pastel blue) or normal style."""
         if highlighted:
@@ -148,15 +185,22 @@ class DiffractionTestDialog(QDialog):
         else:
             button.setStyleSheet("")  # Reset to default
 
-    def _add_row(self):
-        """Add a new empty row to the table."""
+    def _add_row(self, measurement: DiffractionMeasurement = None):
+        """Add a new row to the table, either blank or pre-filled from a
+        DiffractionMeasurement (used to restore rows from a session)."""
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        # Set default values (H, K, L, energy, tth, theta, chi, phi)
-        defaults = [0.0, 0.0, 0.0, 2200.0, 90.0, 45.0, 0.0, 0.0]
-        for col, default in enumerate(defaults):
-            item = QTableWidgetItem(str(default))
+        if measurement is not None:
+            values = (
+                measurement.H, measurement.K, measurement.L, measurement.energy,
+                measurement.tth, measurement.theta, measurement.chi, measurement.phi,
+            )
+        else:
+            values = _DEFAULT_ROW_VALUES
+
+        for col, value in enumerate(values):
+            item = QTableWidgetItem(str(value))
             item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row, col, item)
 
@@ -168,12 +212,37 @@ class DiffractionTestDialog(QDialog):
         elif self.table.rowCount() > 0:
             # If no row selected, remove the last row
             self.table.removeRow(self.table.rowCount() - 1)
+        self._invalidate_result()
 
-    def _get_diffraction_tests(self) -> list:
+    def _invalidate_result(self, *_args):
+        """Mark any previously-calculated/restored result as stale: any table
+        edit, row addition, or row removal after a calculation must not leave
+        a now-inconsistent result applyable via "Apply and Close".
+
+        Also clears the persisted `session.last_result` (not just the
+        dialog-local `self.result`/display), so that closing without
+        recalculating can't later restore a "valid" result on reopen that no
+        longer matches the edited rows.
+        """
+        if self.result is None and not self.results_group.isVisible():
+            return  # nothing to invalidate yet
+        self.result = None
+        self.session.last_result = None
+        self.session.lattice_params_at_fit = None
+        self.apply_btn.setEnabled(False)
+        self._set_button_success(self.apply_btn, False)
+        self._set_button_highlighted(self.calculate_btn, True)
+        self.results_group.setTitle("Calculated Orientation (stale -- recalculate)")
+
+    def _get_diffraction_tests(self, *, strict: bool) -> list:
         """Extract diffraction test data from the table.
 
-        Returns:
-            List of dictionaries containing test data, or None if validation fails.
+        In strict mode (used by "Calculate"): shows a warning and returns
+        None on the first unparseable row or if the table is empty.
+
+        In non-strict mode (used when syncing the session on close): silently
+        skips unparseable rows instead of blocking, so whatever is still
+        parseable survives a Cancel for the next time the dialog is opened.
         """
         tests = []
         for row in range(self.table.rowCount()):
@@ -190,18 +259,20 @@ class DiffractionTestDialog(QDialog):
                 }
                 tests.append(test)
             except (ValueError, AttributeError) as e:
-                QMessageBox.warning(
-                    self,
-                    "Invalid Input",
-                    f"Row {row + 1} contains invalid data. Please enter numeric values.\n\nError: {e}",
-                )
-                return None
+                if strict:
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Input",
+                        f"Row {row + 1} contains invalid data. Please enter numeric values.\n\nError: {e}",
+                    )
+                    return None
+                continue
 
-        if not tests:
+        if not tests and strict:
             QMessageBox.warning(
                 self,
                 "No Data",
-                "Please enter at least one diffraction test.",
+                "Please enter at least two non-parallel diffraction tests.",
             )
             return None
 
@@ -209,63 +280,66 @@ class DiffractionTestDialog(QDialog):
 
     def _calculate_orientation(self):
         """Calculate the optimal orientation from the entered data."""
-        tests = self._get_diffraction_tests()
+        tests = self._get_diffraction_tests(strict=True)
         if tests is None:
             return
 
-        # Run the fitting algorithm
-        result = fit_orientation_from_diffraction_tests(
-            self.lattice_params, tests
-        )
+        fit_result = fit_orientation_from_diffraction_tests(self.lattice_params, tests)
 
-        if not result["success"]:
+        # Keep the session's raw measurements in sync regardless of outcome,
+        # so a failed/rejected calculation still preserves what was typed.
+        self.session.measurements = [DiffractionMeasurement.from_dict(t) for t in tests]
+
+        if not fit_result.valid:
+            self.session.last_result = None
+            self.session.lattice_params_at_fit = None
+            self._invalidate_result()
             QMessageBox.warning(
                 self,
                 "Calculation Failed",
-                f"Failed to calculate orientation:\n\n{result.get('message', 'Unknown error')}",
+                f"Failed to calculate a valid orientation:\n\n{fit_result.message}",
             )
             return
 
-        # Display results (overwrites any previous results)
-        self.roll_result.setValue(result["roll"])
-        self.pitch_result.setValue(result["pitch"])
-        self.yaw_result.setValue(result["yaw"])
-        self.error_label.setText(f"Residual Error: {result['residual_error']:.6f}")
+        self.session.last_result = fit_result
+        self.session.lattice_params_at_fit = dict(self.lattice_params)
+        self._show_result(fit_result, announce=True)
 
-        # Update group title to indicate results are current
+    def _show_result(self, fit_result, announce: bool):
+        """Display an accepted OrientationFitResult and enable Apply."""
+        self.roll_result.setValue(fit_result.roll)
+        self.pitch_result.setValue(fit_result.pitch)
+        self.yaw_result.setValue(fit_result.yaw)
+        self.error_label.setText(f"Residual RMS: {fit_result.residual_rms:.6g} r.l.u.")
+
         self.results_group.setTitle("Calculated Orientation (Updated)")
         self.results_group.setVisible(True)
         self.apply_btn.setEnabled(True)
 
-        # Update button styles: remove highlight from Calculate, add to Apply
         self._set_button_highlighted(self.calculate_btn, False)
         self._set_button_success(self.apply_btn, True)
 
-        # Store result for later retrieval
         self.result = {
-            "roll": result["roll"],
-            "pitch": result["pitch"],
-            "yaw": result["yaw"],
-            "ub_data": tests, # angles and HKL that were used to calculate the orientation
+            "roll": fit_result.roll,
+            "pitch": fit_result.pitch,
+            "yaw": fit_result.yaw,
+            "ub_data": [m.to_dict() for m in fit_result.measurements],
         }
 
-        # Show detailed errors if available
-        if result.get("individual_errors"):
-            error_text = "Individual test errors:\n"
-            for i, err in enumerate(result["individual_errors"]):
-                error_text += (
-                    f"  Test {i+1}: ΔH={err['H_error']:.4f}, "
-                    f"ΔK={err['K_error']:.4f}, ΔL={err['L_error']:.4f}\n"
-                )
+        if announce:
+            error_text = "\n".join(
+                f"  Test {i + 1}: residual = {r:.4g} r.l.u."
+                for i, r in enumerate(fit_result.per_measurement_residuals or [])
+            )
             QMessageBox.information(
                 self,
                 "Calculation Complete",
                 f"Orientation calculated successfully!\n\n"
-                f"Roll: {result['roll']:.4f}°\n"
-                f"Pitch: {result['pitch']:.4f}°\n"
-                f"Yaw: {result['yaw']:.4f}°\n\n"
-                f"Residual Error: {result['residual_error']:.6f}\n\n"
-                f"{error_text}",
+                f"Roll: {fit_result.roll:.4f}°\n"
+                f"Pitch: {fit_result.pitch:.4f}°\n"
+                f"Yaw: {fit_result.yaw:.4f}°\n\n"
+                f"Residual RMS: {fit_result.residual_rms:.6g} r.l.u.\n\n"
+                f"Per-measurement residuals:\n{error_text}",
             )
 
     def _apply_and_close(self):
@@ -279,10 +353,25 @@ class DiffractionTestDialog(QDialog):
                 "Please calculate the orientation first.",
             )
 
+    def _sync_session_before_close(self):
+        """Best-effort capture of whatever is currently in the table, so it
+        survives even a Cancel/close without a successful Calculate."""
+        tests = self._get_diffraction_tests(strict=False)
+        self.session.measurements = [DiffractionMeasurement.from_dict(t) for t in tests]
+
+    def accept(self):
+        self._sync_session_before_close()
+        super().accept()
+
+    def reject(self):
+        self._sync_session_before_close()
+        super().reject()
+
     def get_result(self) -> dict:
         """Get the calculated orientation.
 
         Returns:
-            Dictionary with roll, pitch, yaw values, or None if not calculated.
+            Dictionary with roll, pitch, yaw, ub_data, or None if not calculated
+            (or invalidated by a subsequent edit).
         """
         return self.result

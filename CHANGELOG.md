@@ -20,6 +20,14 @@ git tag history for that period rather than a detailed per-tag log here.
   at a nonexistent `init.jpg` instead of `init.gif`).
 - Removed dead `fsolve`/`angle_to_matrix` imports left over from the switch
   to closed-form analytic angle solving.
+- Fixed the "Set UB Matrix" dialog crashing with `UnboundLocalError` when
+  cancelled instead of applied.
+- Fixed several UB-matrix state bugs: editing the diffraction-test table
+  after calculating no longer leaves a stale result applyable; a calculation
+  that's calculated then cancelled no longer leaks into the applied
+  orientation/`ub_data`; changing lattice parameters or the CIF after a fit
+  now properly invalidates it (previously the fitted Euler angles could
+  silently remain active with no matching `ub_data`).
 
 ### Added
 - `advisor.__version__`, sourced from installed package metadata.
@@ -29,6 +37,8 @@ git tag history for that period rather than a detailed per-tag log here.
   `UnitConverter`, the `structure_factor` feature's domain layer, and both
   feature controllers plus `AppController`.
 - `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`.
+- The "Set UB Matrix" dialog now remembers entered rows and the last result
+  across close/reopen within an Init Window session.
 
 ### Changed
 - Corrected stale architecture documentation (`CLAUDE.md`,
@@ -38,6 +48,14 @@ git tag history for that period rather than a detailed per-tag log here.
 - Cleaned up committed Sphinx build output (`docs/build/`) and a stale,
   unreferenced duplicate doc tree (`docs/non_sphinx_docs/`) — both removed
   from version control.
+- **Breaking:** UB-matrix orientation fitting (`fit_orientation_from_diffraction_tests()`)
+  now uses a deterministic Kabsch/SVD rotation solve instead of a multi-start
+  L-BFGS-B optimizer — faster, reproducible, and with real input validation
+  (rejects too few/parallel/duplicate measurements, bad energy/angles,
+  magnitude-inconsistent HKL). It now returns a typed `OrientationFitResult`
+  instead of a dict, and no longer accepts `initial_guess`/`n_restarts`; a
+  fit is `valid` only if its residual clears a documented tolerance
+  calibrated to realistic (not exact-synthetic) motor-angle precision.
 
 ## [1.0.0] - 2026-07-28
 

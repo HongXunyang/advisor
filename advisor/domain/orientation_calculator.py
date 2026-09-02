@@ -9,7 +9,7 @@ It avoids importing from feature modules to prevent circular dependencies.
 
 import numpy as np
 
-from advisor.domain import angle_to_matrix
+from advisor.domain import angle_to_matrix, calculate_scattering_vector
 from advisor.domain.core import Lab
 
 
@@ -125,18 +125,8 @@ class OrientationCalculator:
             # Get real space vectors in lab frame
             a_vec_lab, b_vec_lab, c_vec_lab = self.lab.get_real_space_vectors()
 
-            # Calculate momentum transfer magnitude
-            k_magnitude = 2.0 * self.k_in * np.sin(np.radians(tth / 2.0))
-
-            # Calculate delta angle
-            delta = 90 - (tth / 2.0)
-            sin_delta = np.sin(np.radians(delta))
-            cos_delta = np.cos(np.radians(delta))
-
             # Momentum transfer at theta, phi, chi = 0
-            k_vec_initial = np.array(
-                [-k_magnitude * sin_delta, -k_magnitude * cos_delta, 0.0]
-            )
+            k_vec_initial = calculate_scattering_vector(self.k_in, tth)
 
             # Rotation of the beam is the reverse rotation of the sample
             rotation_matrix = angle_to_matrix(theta, phi, chi).T

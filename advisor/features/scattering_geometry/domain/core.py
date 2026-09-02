@@ -8,7 +8,7 @@ that don't depend on the BrillouinCalculator class.
 
 import numpy as np
 
-from advisor.domain import angle_to_matrix
+from advisor.domain import angle_to_matrix, calculate_scattering_vector
 from advisor.domain.core import Sample
 
 
@@ -108,13 +108,12 @@ def calculate_tth_from_k_magnitude(k_in, k_magnitude):
 
 
 def calculate_k_vector_in_lab(k_in, tth):
-    """get the momentum transfer k vector in lab frame from the scattering angle tth"""
-    eta = 90 - tth / 2
-    eta_rad = np.radians(eta)
-    k_magnitude = calculate_k_magnitude(k_in, tth)
-    #k_vector = k_magnitude * np.array([-np.cos(eta_rad), 0, -np.sin(eta_rad)])
-    k_vector = k_magnitude * np.array([-np.sin(eta_rad), -np.cos(eta_rad), 0])
-    return k_vector
+    """get the momentum transfer k vector in lab frame from the scattering angle tth
+
+    Thin wrapper around the shared `advisor.domain.geometry.calculate_scattering_vector`
+    primitive (kept here so existing call sites in this module don't need to change).
+    """
+    return calculate_scattering_vector(k_in, tth)
 
 
 def derivative(fun, x, delta_x=1e-6):
@@ -548,18 +547,8 @@ def _calculate_hkl(k_in, tth, theta, phi, chi, a_vec_lab, b_vec_lab, c_vec_lab):
             - error (str or None): Error message if any
     """
     try:
-        # Calculate momentum transfer magnitude
-        k_magnitude = 2.0 * k_in * np.sin(np.radians(tth / 2.0))
-
-        # Calculate delta = theta + 90 - (tth/2)
-        delta = 90 -(tth / 2.0)
-        sin_delta = np.sin(np.radians(delta))
-        cos_delta = np.cos(np.radians(delta))
-
         # momentum transfer at theta, phi, chi = 0
-        k_vec_initial = np.array(
-            [-k_magnitude * sin_delta, -k_magnitude * cos_delta, 0.0]
-        )
+        k_vec_initial = calculate_scattering_vector(k_in, tth)
 
         # rotation of the beam is the reverse rotation of the sample, thus the transpose
         rotation_matrix = angle_to_matrix(theta, phi, chi).T
