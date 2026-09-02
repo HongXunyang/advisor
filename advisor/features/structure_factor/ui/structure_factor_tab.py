@@ -7,7 +7,8 @@ import numpy as np
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtWidgets import QGridLayout, QMessageBox, QTabWidget, QWidget
 
-from advisor.features.structure_factor.domain import StructureFactorCalculator
+from advisor.features.structure_factor.domain import (StructureFactorCalculator,
+                                                       generate_hkl_range)
 from advisor.ui.tab_interface import TabInterface
 from advisor.ui.tips import Tips, set_tip
 
@@ -35,6 +36,18 @@ class StructureFactorTab(TabInterface):
 
         self._create_hkl_plane_tab()
         self._create_customized_tab()
+
+    @pyqtSlot()
+    def _open_reflection_popup_from_hkl_plane(self):
+        """Open the reflection popup, defaulting to the active HK/HL/KL view's snapshot."""
+        snapshot = self.hkl_plane_2d.get_current_snapshot()
+        self.controller.open_reflection_popup(default_snapshot=snapshot)
+
+    @pyqtSlot()
+    def _open_reflection_popup_from_customized_plane(self):
+        """Open the reflection popup, defaulting to the customized UV plane's snapshot."""
+        snapshot = self.customized_plane_widget.get_current_snapshot()
+        self.controller.open_reflection_popup(default_snapshot=snapshot)
 
     def set_parameters(self, params: dict):
         """Set parameters from global lattice configuration.
@@ -115,7 +128,10 @@ class StructureFactorTab(TabInterface):
         """Connect signals for HKL plane tab."""
         # Initialize button
         self.hkl_controls.initializeClicked.connect(self.initialize_calculator_hkl)
-        
+
+        # Export button
+        self.hkl_controls.exportClicked.connect(self._open_reflection_popup_from_hkl_plane)
+
         # Plane change
         self.hkl_controls.planeChanged.connect(self._on_plane_changed)
         
@@ -138,6 +154,9 @@ class StructureFactorTab(TabInterface):
         # Connect initialize signal
         controls = self.customized_plane_widget.get_controls()
         controls.initializeClicked.connect(self.initialize_calculator_customized)
+
+        # Connect export signal
+        controls.exportClicked.connect(self._open_reflection_popup_from_customized_plane)
 
         # Connect check accessibility signal
         accessible_controls = self.customized_plane_widget.accessible_controls
@@ -296,12 +315,12 @@ class StructureFactorTab(TabInterface):
 
     def _generate_hkl_cube(self, max_index: int = 5):
         """Generate a full integer HKL grid from 0..max_index for 3D visualization."""
-        cube = []
-        for h in range(0, max_index + 1):
-            for k in range(0, max_index + 1):
-                for l in range(0, max_index + 1):
-                    cube.append([h, k, l])
-        return cube
+        return [
+            list(p)
+            for p in generate_hkl_range(
+                (0, max_index), (0, max_index), (0, max_index), exclude_origin=False
+            )
+        ]
 
     def get_module_instance(self):
         """Get the backend module instance."""

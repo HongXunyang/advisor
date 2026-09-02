@@ -1,0 +1,23 @@
+data_test_fcc
+_cell_angle_alpha 90.0
+_cell_angle_beta 90.0
+_cell_angle_gamma 90.0
+_cell_length_a 3.6
+_cell_length_b 3.6
+_cell_length_c 3.6
+loop_
+_symmetry_equiv_pos_site_id
+_symmetry_equiv_pos_as_xyz
+1 x,y,z
+loop_
+_atom_site_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_thermal_displace_type
+_atom_site_occupancy
+_atom_site_type_symbol
+Cu1 0.0 0.0 0.0 Biso 1.0 Cu
+Cu2 0.5 0.5 0.0 Biso 1.0 Cu
+Cu3 0.5 0.0 0.5 Biso 1.0 Cu
+Cu4 0.0 0.5 0.5 Biso 1.0 Cu
