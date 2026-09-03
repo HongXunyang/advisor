@@ -4,6 +4,11 @@ invalidation and cross-reopen persistence via OrientationFitSession.
 These exercise the real dialog (only QMessageBox is stubbed), matching the
 existing pattern in tests/features/scattering_geometry/ui/.
 """
+import ast
+
+import numpy as np
+from PyQt5.QtWidgets import QApplication
+
 from advisor.domain.orientation_calculator import OrientationCalculator
 from advisor.domain.orientation_types import OrientationFitSession
 from advisor.ui.dialogs.diffraction_test_dialog import DiffractionTestDialog
@@ -28,6 +33,19 @@ def _two_valid_rows():
     return rows
 
 
+def _parallel_hkl_rows():
+    """Two rows whose HKL (hence reciprocal g) vectors are parallel, so the
+    fit is rejected as non-identifiable (fit_result.valid is False) --
+    used to exercise the "failed calculation must not leave a stale UB
+    matrix" path."""
+    return [
+        {"H": 1.0, "K": 0.0, "L": 0.0, "energy": 20000.0,
+         "tth": 90.0, "theta": 45.0, "phi": 0.0, "chi": 0.0},
+        {"H": 2.0, "K": 0.0, "L": 0.0, "energy": 20000.0,
+         "tth": 80.0, "theta": 40.0, "phi": 5.0, "chi": 5.0},
+    ]
+
+
 def _fill_table(dialog, rows):
     while dialog.table.rowCount() < len(rows):
         dialog._add_row()
@@ -50,6 +68,56 @@ def test_calculate_enables_apply(qapp, message_box_calls):
     assert not message_box_calls.warnings
 
 
+def test_calculate_populates_ub_matrix_from_fit_result(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    _fill_table(dialog, _two_valid_rows())
+
+    dialog._calculate_orientation()
+
+    assert dialog._ub_matrix is not None
+    # Exact equality (not allclose): proves the displayed matrix is the same
+    # full-precision domain object, not reconstructed from rounded Euler angles.
+    assert np.array_equal(dialog._ub_matrix, dialog.session.last_result.UB)
+    assert dialog.copy_ub_btn.isEnabled()
+    # Spot-check the on-screen cells reflect the same values (6 sig figs).
+    assert dialog.ub_matrix_cells[0][0].text() == f"{dialog._ub_matrix[0, 0]:.6g}"
+
+
+def test_copy_ub_matrix_roundtrips(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    _fill_table(dialog, _two_valid_rows())
+    dialog._calculate_orientation()
+
+    dialog._copy_ub_matrix()
+
+    clipboard_text = QApplication.clipboard().text()
+    parsed = ast.literal_eval(clipboard_text)
+    assert len(parsed) == 3 and all(len(row) == 3 for row in parsed)
+    assert np.allclose(np.array(parsed), dialog._ub_matrix, rtol=1e-12)
+
+
+def test_copy_ub_matrix_disabled_without_result(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    assert not dialog.copy_ub_btn.isEnabled()
+    # Calling the handler directly (e.g. if somehow invoked) must be a no-op.
+    dialog._copy_ub_matrix()
+
+
+def test_failed_calculation_clears_stale_ub_matrix(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    _fill_table(dialog, _two_valid_rows())
+    dialog._calculate_orientation()
+    assert dialog._ub_matrix is not None
+
+    _fill_table(dialog, _parallel_hkl_rows())
+    dialog._calculate_orientation()
+
+    assert dialog.result is None
+    assert dialog._ub_matrix is None
+    assert not dialog.copy_ub_btn.isEnabled()
+    assert all(cell.text() == "--" for row in dialog.ub_matrix_cells for cell in row)
+
+
 def test_editing_after_calculate_disables_apply(qapp, message_box_calls):
     dialog = DiffractionTestDialog(dict(_LATTICE))
     _fill_table(dialog, _two_valid_rows())
@@ -62,6 +130,8 @@ def test_editing_after_calculate_disables_apply(qapp, message_box_calls):
     assert not dialog.apply_btn.isEnabled()
     assert dialog.result is None
     assert "stale" in dialog.results_group.title().lower()
+    assert dialog._ub_matrix is None
+    assert not dialog.copy_ub_btn.isEnabled()
 
 
 def test_removing_row_after_calculate_disables_apply(qapp, message_box_calls):
@@ -75,6 +145,8 @@ def test_removing_row_after_calculate_disables_apply(qapp, message_box_calls):
 
     assert not dialog.apply_btn.isEnabled()
     assert dialog.result is None
+    assert dialog._ub_matrix is None
+    assert not dialog.copy_ub_btn.isEnabled()
 
 
 def test_apply_and_close_blocked_without_result(qapp, message_box_calls):
@@ -115,6 +187,9 @@ def test_session_restores_valid_result_on_reopen(qapp, message_box_calls):
     # needing to click Calculate again.
     assert dialog2.apply_btn.isEnabled()
     assert dialog2.result is not None
+    assert dialog2._ub_matrix is not None
+    assert np.array_equal(dialog2._ub_matrix, session.last_result.UB)
+    assert dialog2.copy_ub_btn.isEnabled()
 
 
 def test_editing_after_calculate_then_closing_does_not_resurrect_stale_fit(qapp, message_box_calls):
@@ -161,3 +236,5 @@ def test_stale_session_not_restored_as_applyable(qapp, message_box_calls):
     dialog2 = DiffractionTestDialog(different_lattice, session=session)
     assert not dialog2.apply_btn.isEnabled()
     assert dialog2.result is None
+    assert dialog2._ub_matrix is None
+    assert not dialog2.copy_ub_btn.isEnabled()

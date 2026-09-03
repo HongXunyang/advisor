@@ -3,10 +3,12 @@
 """Dialog for importing orientation from diffraction test data."""
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QDialog, QDoubleSpinBox, QFormLayout, QGroupBox,
-                             QHBoxLayout, QHeaderView, QLabel, QMessageBox,
-                             QPushButton, QTableWidget, QTableWidgetItem,
-                             QVBoxLayout)
+from PyQt5.QtGui import QFontDatabase
+from PyQt5.QtWidgets import (QApplication, QDialog, QDoubleSpinBox, QFormLayout,
+                             QFrame, QGridLayout, QGroupBox, QHBoxLayout,
+                             QHeaderView, QLabel, QMessageBox, QPushButton,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QWidget)
 
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
 from advisor.domain.orientation_types import (
@@ -61,6 +63,8 @@ class DiffractionTestDialog(QDialog):
         self.lattice_params = lattice_params
         self.session = session if session is not None else OrientationFitSession()
         self.result = None  # dict with roll/pitch/yaw/ub_data, set only on a successful Calculate
+        self._ub_matrix = None  # full-precision OrientationFitResult.UB, kept separate from
+        # `self.result` so displaying/copying it can never change `ub_data`'s shape/contents
 
         self.setWindowTitle("Import Orientation from UB Matrix Tests")
         self.setMinimumWidth(800)
@@ -116,33 +120,92 @@ class DiffractionTestDialog(QDialog):
         row_buttons_layout.addStretch()
         layout.addLayout(row_buttons_layout)
 
-        # Results display area
+        # Results display area: Euler angles on the left, UB matrix on the
+        # right, side by side.
         self.results_group = QGroupBox("Calculated Orientation")
-        results_layout = QFormLayout(self.results_group)
+        results_outer_layout = QHBoxLayout(self.results_group)
+
+        angles_widget = QWidget()
+        angles_layout = QFormLayout(angles_widget)
+        angles_layout.setContentsMargins(0, 0, 0, 0)
 
         self.roll_result = QDoubleSpinBox()
         self.roll_result.setRange(-180, 180)
         self.roll_result.setDecimals(4)
         self.roll_result.setReadOnly(True)
         self.roll_result.setSuffix(" °")
-        results_layout.addRow("Roll:", self.roll_result)
+        angles_layout.addRow("Roll:", self.roll_result)
 
         self.pitch_result = QDoubleSpinBox()
         self.pitch_result.setRange(-180, 180)
         self.pitch_result.setDecimals(4)
         self.pitch_result.setReadOnly(True)
         self.pitch_result.setSuffix(" °")
-        results_layout.addRow("Pitch:", self.pitch_result)
+        angles_layout.addRow("Pitch:", self.pitch_result)
 
         self.yaw_result = QDoubleSpinBox()
         self.yaw_result.setRange(-180, 180)
         self.yaw_result.setDecimals(4)
         self.yaw_result.setReadOnly(True)
         self.yaw_result.setSuffix(" °")
-        results_layout.addRow("Yaw:", self.yaw_result)
+        angles_layout.addRow("Yaw:", self.yaw_result)
 
         self.error_label = QLabel("Residual Error: --")
-        results_layout.addRow(self.error_label)
+        self.error_label.setWordWrap(True)
+        angles_layout.addRow(self.error_label)
+
+        results_outer_layout.addWidget(angles_widget)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.VLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        results_outer_layout.addWidget(separator)
+
+        # UB matrix -- populated from OrientationFitResult.UB directly (never
+        # reconstructed from the rounded roll/pitch/yaw fields above), so it
+        # stays numerically identical to the domain result. Plain labels
+        # (not editable boxes) inside one bordered frame, so it reads as a
+        # single matrix rather than nine separate input fields.
+        ub_widget = QWidget()
+        ub_layout = QVBoxLayout(ub_widget)
+        ub_layout.setContentsMargins(0, 0, 0, 0)
+
+        ub_title = QLabel("UB Matrix (Å⁻¹)")
+        ub_title.setStyleSheet("font-weight: bold;")
+        ub_layout.addWidget(ub_title)
+
+        matrix_frame = QFrame()
+        matrix_frame.setObjectName("ubMatrixFrame")
+        matrix_frame.setFrameShape(QFrame.StyledPanel)
+        # Scoped to #ubMatrixFrame specifically -- QLabel is itself a QFrame
+        # subclass, so an unscoped "QFrame { border: ... }" rule here would
+        # cascade down and put a border around every individual cell too.
+        matrix_frame.setStyleSheet(
+            "QFrame#ubMatrixFrame { background-color: palette(base); "
+            "border: 1px solid palette(mid); border-radius: 3px; }"
+        )
+        matrix_grid = QGridLayout(matrix_frame)
+        matrix_grid.setContentsMargins(12, 10, 12, 10)
+        matrix_grid.setHorizontalSpacing(18)
+        matrix_grid.setVerticalSpacing(6)
+        monospace_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        self.ub_matrix_cells = []
+        for i in range(3):
+            row_cells = []
+            for j in range(3):
+                cell = QLabel("--")
+                cell.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                cell.setFont(monospace_font)
+                cell.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                cell.setMinimumWidth(90)
+                matrix_grid.addWidget(cell, i, j)
+                row_cells.append(cell)
+            self.ub_matrix_cells.append(row_cells)
+        ub_layout.addWidget(matrix_frame)
+        ub_layout.addStretch()
+
+        results_outer_layout.addWidget(ub_widget)
+        results_outer_layout.addStretch()
 
         self.results_group.setVisible(False)
         layout.addWidget(self.results_group)
@@ -159,6 +222,11 @@ class DiffractionTestDialog(QDialog):
         self.apply_btn.clicked.connect(self._apply_and_close)
         self.apply_btn.setEnabled(False)
         button_layout.addWidget(self.apply_btn)
+
+        self.copy_ub_btn = QPushButton("Copy UB Matrix")
+        self.copy_ub_btn.clicked.connect(self._copy_ub_matrix)
+        self.copy_ub_btn.setEnabled(False)
+        button_layout.addWidget(self.copy_ub_btn)
 
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
@@ -249,6 +317,12 @@ class DiffractionTestDialog(QDialog):
         self._set_button_highlighted(self.calculate_btn, True)
         self.results_group.setTitle("Calculated Orientation (stale -- recalculate)")
         self.error_label.setStyleSheet("")  # clear any quality-warning color from the last result
+
+        self._ub_matrix = None
+        for row_cells in self.ub_matrix_cells:
+            for cell in row_cells:
+                cell.setText("--")
+        self.copy_ub_btn.setEnabled(False)
 
     def _get_diffraction_tests(self, *, strict: bool) -> list:
         """Extract diffraction test data from the table.
@@ -344,6 +418,12 @@ class DiffractionTestDialog(QDialog):
         self._set_button_highlighted(self.calculate_btn, False)
         self._set_button_success(self.apply_btn, True)
 
+        self._ub_matrix = fit_result.UB.copy()
+        for i in range(3):
+            for j in range(3):
+                self.ub_matrix_cells[i][j].setText(f"{self._ub_matrix[i, j]:.6g}")
+        self.copy_ub_btn.setEnabled(True)
+
         self.result = {
             "roll": fit_result.roll,
             "pitch": fit_result.pitch,
@@ -375,6 +455,20 @@ class DiffractionTestDialog(QDialog):
                 f"{caveat_html}<br>"
                 f"Per-measurement residuals:<br>{error_text}",
             )
+
+    def _copy_ub_matrix(self):
+        """Copy the full-precision UB matrix to the clipboard as a parseable
+        three-row nested list, e.g. [[v11, v12, v13], ...]. `repr()` on the
+        native Python floats gives the shortest decimal string that
+        round-trips exactly to the original float64 value (~15-17
+        significant digits), which is what a comparison script needs.
+
+        Purely reads `self._ub_matrix`; never touches `self.session` or
+        `ub_data`, so it cannot apply the orientation or alter app state.
+        """
+        if self._ub_matrix is None:
+            return
+        QApplication.clipboard().setText(repr(self._ub_matrix.tolist()))
 
     def _apply_and_close(self):
         """Apply the calculated orientation and close the dialog."""
