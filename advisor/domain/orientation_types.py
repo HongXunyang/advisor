@@ -109,23 +109,30 @@ class OrientationFitConfig:
     """r.l.u.-equivalent combined distance below which two measurements are
     considered duplicates of each other."""
 
-    # --- fit acceptance (advisor/domain/orientation.py) ---
-    residual_rms_threshold: float = 1e-3
-    """r.l.u. A fit is accepted (`valid=True`) only if the RMS per-measurement
-    HKL residual is below this.
+    # --- fit quality grading (advisor/domain/orientation.py) ---
+    # A completed, identifiable fit is ALWAYS returned and always usable
+    # (Kabsch/SVD always gives the least-squares-best rotation for whatever
+    # measurements it's given -- see the "least squares, not exact-or-fail"
+    # discussion in the project notes). These two thresholds only grade how
+    # much to trust that best-fit result; neither one ever blocks it.
+    residual_rms_warning_threshold: float = 0.02
+    """r.l.u. RMS residual below this: `quality = "good"`, no caveat shown.
+    At or above this (but below the severe threshold): `quality = "warning"`
+    -- displayed with a concise "uncertainty is a bit large" note. Relaxed
+    from an earlier, over-strict 1e-6/1e-3 exact-data-calibrated value; see
+    `residual_rms_severe_threshold` below for how the two are meant to be
+    read together."""
 
-    Calibrated against realistic motor-angle precision, not exact synthetic
-    data: rounding tth/theta/phi/chi to 0.01 degrees (typical
-    display/instrument resolution) before fitting produces residual RMS
-    values up to ~2e-4 r.l.u. across a range of lattices/energies/geometries
-    (verified with the existing analytic angle solver -- see
-    tests/domain/test_orientation.py::test_round_trip_realistic_angle_rounding).
-    A genuinely inconsistent fit (wrong HKL for the given angles, or
-    measurements that don't share a common orientation) lands 3-4 orders of
-    magnitude higher (~0.1-1+ r.l.u.). 1e-3 sits comfortably above the former
-    and well below the latter. An exact-synthetic-data threshold like the
-    previous 1e-6 default would reject essentially all real, rounded
-    experimental input."""
+    residual_rms_severe_threshold: float = 0.1
+    """r.l.u. RMS residual at or above this: `quality = "poor"` -- displayed
+    in red. Still a real least-squares best fit, not a failure; the caller
+    decides whether to still use it (e.g. as a starting point, or while
+    collecting more/better measurements)."""
+
+
+FIT_QUALITY_GOOD = "good"
+FIT_QUALITY_WARNING = "warning"
+FIT_QUALITY_POOR = "poor"
 
 
 @dataclass
@@ -133,17 +140,23 @@ class OrientationFitResult:
     """Result of `fit_orientation_from_diffraction_tests`.
 
     `completed`, `identifiable`, and `valid` are independent flags so that
-    "the algorithm ran" is never conflated with "the orientation is
-    trustworthy":
+    "the algorithm ran" is never conflated with "an orientation was
+    determined":
       - `completed`: the calculation ran to the end without an internal
         error (malformed input, lattice-initialization failure).
       - `identifiable`: the input passed identifiability validation (enough
         independent, non-degenerate measurements).
-      - `valid`: `completed and identifiable` AND the resulting residual is
-        below `OrientationFitConfig.residual_rms_threshold`.
+      - `valid`: `completed and identifiable` -- an orientation exists and
+        was computed. It does NOT mean "trustworthy"; see `quality`.
 
-    Only a `valid=True` result should be used to update UI Euler-angle
-    fields or the downstream `ub_data` parameter.
+    `quality` (one of `FIT_QUALITY_GOOD`/`_WARNING`/`_POOR`, set only when
+    `valid`) grades how much to trust the fit, from `residual_rms` against
+    `OrientationFitConfig`'s two thresholds -- but never blocks it: the
+    Kabsch/SVD solve always returns the least-squares-best rotation for
+    whatever measurements it's given, exact or noisy, so a `valid` result is
+    always usable. `quality` is advisory, for the UI to surface as a caveat
+    (or not) -- it is the caller's judgment call whether to still apply a
+    `"poor"`-quality fit.
     """
 
     completed: bool
@@ -151,6 +164,7 @@ class OrientationFitResult:
     valid: bool
     message: str
     rejection_reason: Optional[str] = None
+    quality: Optional[str] = None
 
     U: Optional[np.ndarray] = None
     UB: Optional[np.ndarray] = None

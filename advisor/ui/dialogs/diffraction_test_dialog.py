@@ -9,10 +9,25 @@ from PyQt5.QtWidgets import (QDialog, QDoubleSpinBox, QFormLayout, QGroupBox,
                              QVBoxLayout)
 
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
-from advisor.domain.orientation_types import DiffractionMeasurement, OrientationFitSession
+from advisor.domain.orientation_types import (
+    FIT_QUALITY_GOOD,
+    FIT_QUALITY_POOR,
+    FIT_QUALITY_WARNING,
+    DiffractionMeasurement,
+    OrientationFitSession,
+)
 
 _TABLE_COLUMNS = ("H", "K", "L", "energy", "tth", "theta", "chi", "phi")
 _DEFAULT_ROW_VALUES = (0.0, 0.0, 0.0, 2200.0, 90.0, 45.0, 0.0, 0.0)
+
+# Residual-quality -> (display color, short caveat) for the results panel
+# and the "Calculation Complete" popup. A fit is never blocked by quality
+# (see OrientationFitConfig) -- this is purely advisory styling.
+_QUALITY_STYLE = {
+    FIT_QUALITY_GOOD: ("#2d5a3d", ""),
+    FIT_QUALITY_WARNING: ("#b8860b", "  ⚠ uncertainty is a bit large"),
+    FIT_QUALITY_POOR: ("#c0392b", "  ⚠ large uncertainty -- verify before use"),
+}
 
 
 class DiffractionTestDialog(QDialog):
@@ -233,6 +248,7 @@ class DiffractionTestDialog(QDialog):
         self._set_button_success(self.apply_btn, False)
         self._set_button_highlighted(self.calculate_btn, True)
         self.results_group.setTitle("Calculated Orientation (stale -- recalculate)")
+        self.error_label.setStyleSheet("")  # clear any quality-warning color from the last result
 
     def _get_diffraction_tests(self, *, strict: bool) -> list:
         """Extract diffraction test data from the table.
@@ -306,11 +322,20 @@ class DiffractionTestDialog(QDialog):
         self._show_result(fit_result, announce=True)
 
     def _show_result(self, fit_result, announce: bool):
-        """Display an accepted OrientationFitResult and enable Apply."""
+        """Display an accepted OrientationFitResult and enable Apply.
+
+        A fit is shown (and Apply enabled) regardless of `fit_result.quality`
+        -- the Kabsch solve always returns the least-squares-best rotation
+        for whatever was entered, so "poor" quality is a caveat to surface,
+        not a reason to withhold the result. See `_QUALITY_STYLE`.
+        """
         self.roll_result.setValue(fit_result.roll)
         self.pitch_result.setValue(fit_result.pitch)
         self.yaw_result.setValue(fit_result.yaw)
-        self.error_label.setText(f"Residual RMS: {fit_result.residual_rms:.6g} r.l.u.")
+
+        color, caveat = _QUALITY_STYLE.get(fit_result.quality, ("#000000", ""))
+        self.error_label.setText(f"Residual RMS: {fit_result.residual_rms:.6g} r.l.u.{caveat}")
+        self.error_label.setStyleSheet(f"color: {color}; font-weight: bold;" if caveat else "")
 
         self.results_group.setTitle("Calculated Orientation (Updated)")
         self.results_group.setVisible(True)
@@ -327,19 +352,28 @@ class DiffractionTestDialog(QDialog):
         }
 
         if announce:
-            error_text = "\n".join(
-                f"  Test {i + 1}: residual = {r:.4g} r.l.u."
+            error_text = "<br>".join(
+                f"&nbsp;&nbsp;Test {i + 1}: residual = {r:.4g} r.l.u."
                 for i, r in enumerate(fit_result.per_measurement_residuals or [])
             )
+            caveat_html = (
+                f'<p style="color:{color};"><b>{caveat.strip()}</b></p>' if caveat else ""
+            )
+            # Qt auto-detects and renders this as rich text (HTML tags present),
+            # so the plain static QMessageBox.information(...) call still works
+            # -- keeping it as a static call (rather than an instance + exec_())
+            # matters so tests can stub it the same way as every other QMessageBox
+            # call in this codebase.
             QMessageBox.information(
                 self,
                 "Calculation Complete",
-                f"Orientation calculated successfully!\n\n"
-                f"Roll: {fit_result.roll:.4f}°\n"
-                f"Pitch: {fit_result.pitch:.4f}°\n"
-                f"Yaw: {fit_result.yaw:.4f}°\n\n"
-                f"Residual RMS: {fit_result.residual_rms:.6g} r.l.u.\n\n"
-                f"Per-measurement residuals:\n{error_text}",
+                f"Orientation calculated successfully.<br><br>"
+                f"Roll: {fit_result.roll:.4f}°<br>"
+                f"Pitch: {fit_result.pitch:.4f}°<br>"
+                f"Yaw: {fit_result.yaw:.4f}°<br><br>"
+                f'<span style="color:{color};">Residual RMS: {fit_result.residual_rms:.6g} r.l.u.</span>'
+                f"{caveat_html}<br>"
+                f"Per-measurement residuals:<br>{error_text}",
             )
 
     def _apply_and_close(self):

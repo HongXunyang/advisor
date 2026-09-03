@@ -57,6 +57,9 @@ import numpy as np
 from advisor.domain.geometry import get_reciprocal_space_vectors, matrix_to_euler_zyx
 from advisor.domain.orientation_calculator import OrientationCalculator
 from advisor.domain.orientation_types import (
+    FIT_QUALITY_GOOD,
+    FIT_QUALITY_POOR,
+    FIT_QUALITY_WARNING,
     DiffractionMeasurement,
     OrientationFitConfig,
     OrientationFitResult,
@@ -124,8 +127,13 @@ def fit_orientation_from_diffraction_tests(
         config: optional OrientationFitConfig overriding the default tolerances.
 
     Returns:
-        OrientationFitResult. Only use the Euler angles / UB matrix when
-        `result.valid` is True.
+        OrientationFitResult. Use the Euler angles / UB matrix when
+        `result.valid` is True (an orientation was determined); check
+        `result.quality` ("good"/"warning"/"poor") for how much to trust it
+        -- a completed, identifiable fit is never rejected outright, since
+        it's always the least-squares-best rotation for the given
+        measurements, but a "poor"-quality one should be surfaced to the
+        user as a caveat rather than applied silently.
     """
     config = config or OrientationFitConfig()
 
@@ -215,20 +223,29 @@ def fit_orientation_from_diffraction_tests(
             n_measurements_used=len(measurements),
         )
 
-    valid = residual_rms < config.residual_rms_threshold
-    message = (
-        "Orientation fit accepted."
-        if valid
-        else (
-            f"Fit completed but residual RMS ({residual_rms:.3e} r.l.u.) exceeds "
-            f"the acceptance threshold ({config.residual_rms_threshold:.3e} r.l.u.)."
+    # A completed, identifiable fit is always the least-squares-best
+    # rotation for the given measurements -- it's never rejected outright.
+    # residual_rms only grades how much to trust it (see quality below).
+    if residual_rms < config.residual_rms_warning_threshold:
+        quality = FIT_QUALITY_GOOD
+        message = "Orientation fit accepted."
+    elif residual_rms < config.residual_rms_severe_threshold:
+        quality = FIT_QUALITY_WARNING
+        message = (
+            f"Orientation fit accepted, but the residual RMS ({residual_rms:.3e} r.l.u.) "
+            f"is elevated -- the uncertainty on this orientation is a bit large."
         )
-    )
+    else:
+        quality = FIT_QUALITY_POOR
+        message = (
+            f"Orientation fit accepted, but the residual RMS ({residual_rms:.3e} r.l.u.) "
+            f"is large -- treat this orientation with caution."
+        )
 
     return OrientationFitResult(
-        completed=True, identifiable=True, valid=valid,
+        completed=True, identifiable=True, valid=True, quality=quality,
         message=message,
-        rejection_reason=None if valid else "residual_too_large",
+        rejection_reason=None,
         U=rotation, UB=ub_matrix, roll=roll, pitch=pitch, yaw=yaw,
         residual_rms=residual_rms, per_measurement_residuals=per_measurement_residuals,
         n_measurements_used=len(measurements), condition_number=condition_number,

@@ -53,9 +53,12 @@ git tag history for that period rather than a detailed per-tag log here.
   L-BFGS-B optimizer — faster, reproducible, and with real input validation
   (rejects too few/parallel/duplicate measurements, bad energy/angles,
   magnitude-inconsistent HKL). It now returns a typed `OrientationFitResult`
-  instead of a dict, and no longer accepts `initial_guess`/`n_restarts`; a
-  fit is `valid` only if its residual clears a documented tolerance
-  calibrated to realistic (not exact-synthetic) motor-angle precision.
+  instead of a dict, and no longer accepts `initial_guess`/`n_restarts`. A
+  completed, identifiable fit is always the least-squares-best rotation and
+  is never rejected on residual alone; instead its residual is graded into
+  `quality` ("good"/"warning"/"poor" against two configurable thresholds,
+  0.02/0.1 r.l.u. by default), surfaced in the "Set UB Matrix" dialog as a
+  concise, color-coded caveat (amber/red) rather than a hard block.
 
 ## [1.0.0] - 2026-07-28
 

@@ -16,7 +16,6 @@ import pytest
 from advisor.domain.geometry import euler_to_matrix, get_reciprocal_space_vectors
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
 from advisor.domain.orientation_calculator import OrientationCalculator
-from advisor.domain.orientation_types import OrientationFitConfig
 from tests.conftest import LATTICE_CONFIGS, consistent_diffraction_row
 
 
@@ -227,9 +226,9 @@ class TestOrientationFittingRoundTrip:
                 noisy[key] = noisy[key] + rng.normal(scale=1e-3)
             noisy_tests.append(noisy)
 
-        config = OrientationFitConfig(residual_rms_threshold=1e-2)
-        result = fit_orientation_from_diffraction_tests(orthorhombic_params, noisy_tests, config)
+        result = fit_orientation_from_diffraction_tests(orthorhombic_params, noisy_tests)
         assert result.valid is True
+        assert result.quality == "good"  # 1e-3-scale noise is comfortably under the 0.02 warning threshold
         check_orientation(result, true_roll, true_pitch, true_yaw, atol=1e-2)
         assert 0 < result.residual_rms < 1e-2
 
@@ -279,6 +278,49 @@ class TestUBMatrixConsistency:
             m = DiffractionMeasurement.from_dict(raw)
             g, q = compute_measurement_vectors(orthorhombic_params, m)
             assert np.allclose(result.U @ g, q, atol=1e-6)
+
+
+class TestFitQuality:
+    """A completed, identifiable fit is never hard-rejected on residual --
+    it's always the least-squares-best rotation available. residual_rms is
+    only graded into quality="good"/"warning"/"poor" against
+    OrientationFitConfig's two thresholds (0.02 / 0.1 r.l.u. by default),
+    purely advisory; `valid` stays True at every tier."""
+
+    def _tests_with_perturbation(self, perturb):
+        lattice = {"a": 3.0, "b": 4.0, "c": 5.0, "alpha": 90.0, "beta": 90.0, "gamma": 90.0}
+        energy = 3000.0
+        calc = OrientationCalculator()
+        calc.initialize({**lattice, "energy": energy, "roll": 5.0, "pitch": 3.0, "yaw": 7.0})
+        angle_sets = [(90.0, 45.0, 0.0, 0.0), (60.0, 30.0, 82, 16), (120.0, 60.0, -5.0, 10.0)]
+        tests = []
+        for i, (tth, theta, phi, chi) in enumerate(angle_sets):
+            r = calc.calculate_hkl(tth, theta, phi, chi)
+            tests.append({
+                "H": r["H"], "K": r["K"] + perturb * (1 if i % 2 == 0 else -1), "L": r["L"],
+                "energy": energy, "tth": tth, "theta": theta, "phi": phi, "chi": chi,
+            })
+        return lattice, tests
+
+    def test_near_exact_data_is_good_quality(self):
+        lattice, tests = self._tests_with_perturbation(0.0)
+        result = fit_orientation_from_diffraction_tests(lattice, tests)
+        assert result.valid is True
+        assert result.quality == "good"
+
+    def test_moderate_residual_is_warning_quality_but_still_valid(self):
+        lattice, tests = self._tests_with_perturbation(0.1)
+        result = fit_orientation_from_diffraction_tests(lattice, tests)
+        assert result.valid is True
+        assert result.quality == "warning"
+        assert result.roll is not None  # Apply-able, per the caveat text only
+
+    def test_large_residual_is_poor_quality_but_still_valid(self):
+        lattice, tests = self._tests_with_perturbation(0.15)
+        result = fit_orientation_from_diffraction_tests(lattice, tests)
+        assert result.valid is True
+        assert result.quality == "poor"
+        assert result.roll is not None  # Apply-able, per the caveat text only
 
 
 class TestConditionNumber:
@@ -392,17 +434,21 @@ class TestOrientationFittingRejections:
         assert result.completed is False
         assert not result.valid
 
-    def test_poor_fit_not_marked_valid(self, orthorhombic_params):
+    def test_poor_fit_marked_as_poor_quality(self, orthorhombic_params):
         """Two non-parallel but internally-inconsistent measurements (the
         HKL values don't actually correspond to any single rigid rotation
-        of these particular angle geometries) should fit with a large
-        residual and NOT be reported as valid."""
+        of these particular angle geometries) should still fit -- Kabsch
+        always returns the least-squares-best rotation -- but with a large
+        residual, graded quality="poor" rather than being rejected outright.
+        """
         row1 = self._base_test_row(H=1.0, K=0.0, L=0.0, theta=45.0, phi=0.0, chi=0.0)
         row2 = self._base_test_row(H=0.0, K=5.0, L=3.0, theta=10.0, phi=70.0, chi=-40.0)
         result = fit_orientation_from_diffraction_tests(orthorhombic_params, [row1, row2])
         assert result.completed and result.identifiable
-        assert result.valid is False
-        assert result.residual_rms > 1e-3
+        assert result.valid is True
+        assert result.quality == "poor"
+        assert result.residual_rms >= 0.1
+        assert result.roll is not None  # still usable, just flagged
 
 
 class TestOrientationFittingWithDifferentCrystals:
