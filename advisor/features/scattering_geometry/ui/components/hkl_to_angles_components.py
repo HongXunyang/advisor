@@ -398,3 +398,14 @@ class HKLToAnglesResultsWidget(QWidget):
         self.results_table.setRowCount(0)
         self.solutions_label.setText("No results yet")
         self.current_result = None
+
+    def clear_history(self):
+        """Discard accumulated results history for a structure change.
+
+        Distinct from clear_results(), which intentionally keeps history --
+        this is for the case where history itself would misrepresent
+        results as belonging to a structure they were never computed for
+        (REQUIREMENT_1). Show History opens a modal dialog, so there is
+        never an already-open history view to also update.
+        """
+        self.history = []

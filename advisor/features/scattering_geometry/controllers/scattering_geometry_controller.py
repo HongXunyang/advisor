@@ -24,3 +24,16 @@ class ScatteringGeometryController(FeatureController):
         self.calculator.initialize(params=params)
         if self.view and hasattr(self.view, "set_parameters"):
             self.view.set_parameters(params)
+
+    def invalidate_structure(self):
+        """Discard the live calculator and all structure-dependent view state.
+
+        A fresh ``BrillouinCalculator`` (rather than adding reset semantics
+        to the calculator class) is the simplest way to guarantee
+        ``is_initialized()`` is False until the next ``set_parameters()``.
+        """
+        self.calculator = BrillouinCalculator()
+        if self.view and hasattr(self.view, "calculator"):
+            self.view.calculator = self.calculator
+        if self.view and hasattr(self.view, "clear"):
+            self.view.clear()

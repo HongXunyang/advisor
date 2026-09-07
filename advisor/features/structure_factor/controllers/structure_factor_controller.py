@@ -49,6 +49,34 @@ class StructureFactorController(FeatureController):
         if self.view and hasattr(self.view, "set_parameters"):
             self.view.set_parameters(params)
 
+    def invalidate_structure(self):
+        """Discard both live calculators, this feature's UI state, and the
+        shared reflection popup's stale contents for a structure change.
+
+        Fresh calculator instances (rather than adding reset semantics to
+        the calculator classes) are the simplest way to guarantee neither
+        can be reinitialized/queried against the old structure. The popup
+        instance itself is kept (avoids Qt lifetime churn) but its contents
+        are cleared and it is hidden.
+        """
+        self.calculator = StructureFactorCalculator()
+        self.brillouin_calculator = BrillouinCalculator()
+        self.parameters = None
+        if self.view and hasattr(self.view, "rebind_calculator"):
+            # Not just `self.view.calculator = self.calculator`: the
+            # Customized Plane subtab widget holds its own independent
+            # `calculator` reference (set once via set_calculator() at
+            # construction), so a plain attribute rebind on the tab leaves
+            # that child silently pointing at the discarded instance --
+            # rebind_calculator() re-syncs every such child in one place.
+            self.view.rebind_calculator(self.calculator)
+        elif self.view and hasattr(self.view, "calculator"):
+            self.view.calculator = self.calculator
+        if self._reflection_popup is not None and hasattr(self._reflection_popup, "reset"):
+            self._reflection_popup.reset()
+        if self.view and hasattr(self.view, "clear"):
+            self.view.clear()
+
     def run_check_accessibility(self, plane_params, constraints, energy_ev):
         """Check accessibility of diffraction points on a customized plane.
 

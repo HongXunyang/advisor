@@ -4,11 +4,29 @@ and the ub_data application-parameter boundary.
 """
 from PyQt5.QtWidgets import QDialog
 
+from advisor.domain.cif_import.types import CifCapabilityReport, StructureSource
 from advisor.domain.orientation_calculator import OrientationCalculator
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
 from advisor.ui.dialogs.diffraction_test_dialog import DiffractionTestDialog
 from advisor.ui.init_window import InitWindow
 from tests.conftest import LATTICE_CONFIGS
+
+
+def _cif_structure_source(a, b, c, alpha, beta, gamma):
+    return StructureSource(
+        content_digest="deadbeef",
+        data_block="test",
+        display_name="test.cif",
+        display_path="/tmp/test.cif",
+        formula=None,
+        space_group=None,
+        a=a, b=b, c=c, alpha=alpha, beta=beta, gamma=gamma,
+        capabilities=CifCapabilityReport(
+            geometry_ok=True, structure_factor_ok=True, reasons=(), message="Ready for geometry and structure factors.",
+        ),
+        effective_path="/tmp/test.cif",
+        source_kind="cif",
+    )
 
 _LATTICE = LATTICE_CONFIGS["orthorhombic"]
 
@@ -88,9 +106,17 @@ def test_cif_apply_clears_ub_session(qapp):
     _apply_valid_fit(window)
     assert window._current_ub_data() is not None
 
-    window.apply_cif_parameters(4.5, 4.5, 10.0, 90.0, 90.0, 120.0)
+    window.on_structure_changed(_cif_structure_source(4.5, 4.5, 10.0, 90.0, 90.0, 120.0))
 
     assert window._current_ub_data() is None
+    # Unlike an ordinary per-field lattice edit, an actual structure change
+    # unconditionally zeroes Euler fields too, including a fit's applied values.
+    assert window.roll_input.value() == 0.0
+    assert window.pitch_input.value() == 0.0
+    assert window.yaw_input.value() == 0.0
+    assert window.a_input.value() == 4.5
+    assert window.gamma_input.value() == 120.0
+    assert window.a_input.isEnabled() is False
 
 
 def test_reset_clears_ub_session(qapp):

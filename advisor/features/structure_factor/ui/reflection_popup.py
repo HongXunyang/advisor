@@ -242,6 +242,20 @@ class ReflectionPopup(QDialog):
         ):
             widget.setEnabled(initialized)
 
+    def reset(self):
+        """Discard displayed results/context and hide for a structure change.
+
+        The instance itself is kept (StructureFactorController reuses one
+        popup across repeat opens) -- only its contents and visibility
+        reset, so a structure replacement can't leave it open showing
+        reflections computed for the previous structure. Reuses
+        load_snapshot(None)'s existing "nothing calculated" state rather
+        than duplicating it.
+        """
+        self.load_snapshot(None)
+        self.refresh_from_calculator()
+        self.hide()
+
     def load_snapshot(self, snapshot):
         """Populate the table from a captured ``ReflectionSnapshot``, or show
         an empty/"nothing calculated yet" state if ``snapshot`` is None.

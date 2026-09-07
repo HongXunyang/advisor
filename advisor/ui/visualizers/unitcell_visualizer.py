@@ -35,6 +35,7 @@ class UnitcellVisualizer(FigureCanvas):
         self.cif_file_path = None
         self._is_initialized = False
         self.crystal = None
+        self.render_error_message = None
         super().__init__(self.fig)
 
         # Set background color to white
@@ -69,44 +70,61 @@ class UnitcellVisualizer(FigureCanvas):
     
     def set_parameters(self, params: dict):
         cif_file_path = params["cif_file"]
-        self.cif_file_path = cif_file_path
         try:
+            self.cif_file_path = cif_file_path
             self.crystal = dif.Crystal(self.cif_file_path)
             self.is_initialized = True
+            self.render_error_message = None
         except Exception as e:
-            print(f"Error loading crystal structure from {cif_file_path}: {e}")
+            self.crystal = None
             self.is_initialized = False
+            self.render_error_message = f"Preview unavailable: {e}"
 
     def visualize_unitcell(self, show_labels=False, is_clear=True):
         """ read the atom position from the cif file and visualize the unit cell using integrated Dans_Diffraction logic
         """ 
         if not self.is_initialized or self.crystal is None:
-            print("Unitcell visualizer not initialized.")
+            # Previously a silent no-op: any artists from a prior successful
+            # render stayed on screen unchanged, byte-for-byte, even though
+            # the underlying crystal had just failed to load -- so a failed
+            # reselection looked identical to success. Clear them and show
+            # the specific reason (set by set_parameters()) if there is one.
+            self.axes.clear()
+            self.axes.set_facecolor("white")
+            self.axes.set_axis_off()
+            if self.render_error_message:
+                self.axes.text2D(
+                    0.5, 0.5, self.render_error_message,
+                    transform=self.axes.transAxes,
+                    ha="center", va="center", fontsize=8, color="gray", wrap=True,
+                )
+            self.draw()
             return
-        
+
         # Clear the current plot
         self.axes.clear()
-        
+
         # Set background color to white and clean axes like Dans_Diffraction
         self.axes.set_facecolor("white")
         self.axes.set_axis_off()  # Ensure clean look after clearing
-        
+
         try:
             # Direct implementation of Dans_Diffraction plot_crystal logic
             self._plot_crystal_direct(show_labels=show_labels)
-            
+            self.render_error_message = None
+
             # Set title with crystal info
             #title = f"Unit Cell: {os.path.basename(self.cif_file_path)}"
             #if hasattr(self.crystal, 'name') and self.crystal.name:
             #    title = f"Unit Cell: {self.crystal.name}"
             #title = f"Unit Cell"
             #self.axes.set_title(title, fontsize=12, pad=20)
-            
+
         except Exception as e:
-            print(f"Error visualizing unit cell: {e}")
+            self.render_error_message = f"Preview unavailable: {e}"
             # Fallback: show error message on plot
-            self.axes.text(0.5, 0.5, 0.5, f"Error: {str(e)}", 
-                          transform=self.axes.transAxes, 
+            self.axes.text(0.5, 0.5, 0.5, f"Error: {str(e)}",
+                          transform=self.axes.transAxes,
                           ha='center', va='center')
         
         # Set initial view
@@ -429,6 +447,26 @@ class UnitcellVisualizer(FigureCanvas):
     def clear_plot(self):
         """ clear the plot """
         self.axes.clear()
+        self.draw()
+
+    def reset(self):
+        """Fully discard any loaded structure, not just the drawn plot.
+
+        ``clear_plot()`` alone only wipes the matplotlib axes -- it leaves
+        ``crystal``/``is_initialized``/``cif_file_path`` untouched, so a
+        later ``visualize_scattering_geometry()`` call could silently keep
+        rendering the previous, supposedly-cleared crystal (its guard only
+        checks ``is_initialized``/``crystal is None``). Call this instead of
+        ``clear_plot()`` whenever the underlying structure has actually
+        changed or been removed.
+        """
+        self.crystal = None
+        self.is_initialized = False
+        self.cif_file_path = None
+        self.render_error_message = None
+        self.axes.clear()
+        self.axes.set_facecolor("white")
+        self.axes.set_axis_off()
         self.draw()
     
 

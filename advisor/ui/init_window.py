@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent
-from PyQt5.QtWidgets import (QDoubleSpinBox, QFileDialog, QFormLayout,
-                             QGridLayout, QGroupBox, QLabel, QLineEdit,
-                             QMessageBox, QPushButton, QWidget)
+from PyQt5.QtWidgets import (QDoubleSpinBox, QFormLayout, QGridLayout,
+                             QGroupBox, QLabel, QMessageBox, QPushButton,
+                             QVBoxLayout, QWidget)
 
 from advisor.domain import UnitConverter
 from advisor.domain.orientation_types import OrientationFitSession
+from advisor.ui.components.cif_selector import CifDropTarget, CifStructureSummary
 from advisor.ui.dialogs import DiffractionTestDialog
-from advisor.ui.utils import readcif
+from advisor.ui.dialogs.cif_details_dialog import CifDetailsDialog
 from advisor.ui.visualizers import CoordinateVisualizer, UnitcellVisualizer
 
 
@@ -29,61 +29,6 @@ class HighPrecisionSpinBox(QDoubleSpinBox):
         return f"{value:.{self._display_decimals}f}"
 
 
-class DragDropLineEdit(QLineEdit):
-    """Custom QLineEdit that accepts drag and drop events."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-        self.setPlaceholderText("Drag and drop CIF file here or click Browse...")
-        self.setReadOnly(True)
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            urls = event.mimeData().urls()
-            if urls and urls[0].toLocalFile().endswith(".cif"):
-                event.acceptProposedAction()
-
-    def dropEvent(self, event: QDropEvent):
-        urls = event.mimeData().urls()
-        if urls:
-            file_path = urls[0].toLocalFile()
-            if file_path.endswith(".cif"):
-                self.setText(file_path)
-                self.textChanged.emit(file_path)
-
-
-class DragDropGroupBox(QGroupBox):
-    """QGroupBox that accepts CIF file drag-and-drop anywhere in the panel.
-
-    When a valid CIF is dropped, it will update the target line edit.
-    """
-
-    def __init__(self, title: str = "", parent=None):
-        super().__init__(title, parent)
-        self.setAcceptDrops(True)
-        self._target_line_edit: QLineEdit = None
-
-    def set_target_line_edit(self, line_edit: QLineEdit):
-        self._target_line_edit = line_edit
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            urls = event.mimeData().urls()
-            if urls and urls[0].toLocalFile().endswith(".cif"):
-                event.acceptProposedAction()
-
-    def dropEvent(self, event: QDropEvent):
-        urls = event.mimeData().urls()
-        if not urls:
-            return
-        file_path = urls[0].toLocalFile()
-        if file_path.endswith(".cif") and self._target_line_edit is not None:
-            # Update target line edit; it will emit textChanged and trigger parsing
-            self._target_line_edit.setText(file_path)
-            self._target_line_edit.textChanged.emit(file_path)
-
-
 class InitWindow(QWidget):
     """Initialization window for setting up lattice parameters."""
 
@@ -93,8 +38,6 @@ class InitWindow(QWidget):
         super().__init__()
         self.controller = controller
         self.unit_converter = UnitConverter()
-        self._lattice_locked = False
-        self._accepted_cif_path = None
         self._ub_session = OrientationFitSession()
         # The fit actually backing the current Euler-angle fields/ub_data --
         # distinct from self._ub_session.last_result, which is a draft/candidate
@@ -113,25 +56,35 @@ class InitWindow(QWidget):
         lattice_group = QGroupBox("Lattice Parameters")
         lattice_layout = QGridLayout(lattice_group)
 
-        # Lattice constants (left column)
-        self.a_input = QDoubleSpinBox()
-        self.a_input.setRange(0.1, 100.0)
+        # Lattice constants (left column). HighPrecisionSpinBox (not a plain
+        # QDoubleSpinBox) so a CIF-derived value is never silently rounded by
+        # setValue() before display -- the actual value handed to Initialize
+        # comes from the accepted StructureSource, not these widgets, but the
+        # displayed value must still not misrepresent it. Ranges are wide
+        # enough that realistic cells (including large/organic ones) are
+        # never clamped either; real cell validity is enforced by
+        # advisor.domain.cif_import.cell_validation, not these bounds.
+        self.a_input = HighPrecisionSpinBox(display_decimals=4)
+        self.a_input.setRange(0.001, 10000.0)
+        self.a_input.setDecimals(6)
         self.a_input.setValue(5.0)
         self.a_input.setSuffix(" Å")
         self.a_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("a:"), 0, 0)
         lattice_layout.addWidget(self.a_input, 0, 1)
 
-        self.b_input = QDoubleSpinBox()
-        self.b_input.setRange(0.1, 100.0)
+        self.b_input = HighPrecisionSpinBox(display_decimals=4)
+        self.b_input.setRange(0.001, 10000.0)
+        self.b_input.setDecimals(6)
         self.b_input.setValue(5.0)
         self.b_input.setSuffix(" Å")
         self.b_input.valueChanged.connect(self._invalidate_ub_session)
         lattice_layout.addWidget(QLabel("b:"), 1, 0)
         lattice_layout.addWidget(self.b_input, 1, 1)
 
-        self.c_input = QDoubleSpinBox()
-        self.c_input.setRange(0.1, 100.0)
+        self.c_input = HighPrecisionSpinBox(display_decimals=4)
+        self.c_input.setRange(0.001, 10000.0)
+        self.c_input.setDecimals(6)
         self.c_input.setValue(5.0)
         self.c_input.setSuffix(" Å")
         self.c_input.valueChanged.connect(self._invalidate_ub_session)
@@ -139,8 +92,9 @@ class InitWindow(QWidget):
         lattice_layout.addWidget(self.c_input, 2, 1)
 
         # Lattice angles (right column)
-        self.alpha_input = QDoubleSpinBox()
-        self.alpha_input.setRange(1.0, 179.0)
+        self.alpha_input = HighPrecisionSpinBox(display_decimals=4)
+        self.alpha_input.setRange(0.0001, 179.9999)
+        self.alpha_input.setDecimals(6)
         self.alpha_input.setValue(90.0)
         self.alpha_input.setSuffix(" °")
         self.alpha_input.valueChanged.connect(self.update_visualization)
@@ -148,8 +102,9 @@ class InitWindow(QWidget):
         lattice_layout.addWidget(QLabel("α:"), 0, 2)
         lattice_layout.addWidget(self.alpha_input, 0, 3)
 
-        self.beta_input = QDoubleSpinBox()
-        self.beta_input.setRange(1.0, 179.0)
+        self.beta_input = HighPrecisionSpinBox(display_decimals=4)
+        self.beta_input.setRange(0.0001, 179.9999)
+        self.beta_input.setDecimals(6)
         self.beta_input.setValue(90.0)
         self.beta_input.setSuffix(" °")
         self.beta_input.valueChanged.connect(self.update_visualization)
@@ -157,8 +112,9 @@ class InitWindow(QWidget):
         lattice_layout.addWidget(QLabel("β:"), 1, 2)
         lattice_layout.addWidget(self.beta_input, 1, 3)
 
-        self.gamma_input = QDoubleSpinBox()
-        self.gamma_input.setRange(1.0, 179.0)
+        self.gamma_input = HighPrecisionSpinBox(display_decimals=4)
+        self.gamma_input.setRange(0.0001, 179.9999)
+        self.gamma_input.setDecimals(6)
         self.gamma_input.setValue(90.0)
         self.gamma_input.setSuffix(" °")
         self.gamma_input.valueChanged.connect(self.update_visualization)
@@ -279,20 +235,26 @@ class InitWindow(QWidget):
         self.unitcell_visualizer = UnitcellVisualizer()
         layout.addWidget(self.unitcell_visualizer, 1, 2)
 
-        # File input area
-        file_group = DragDropGroupBox("Crystal Structure File")
-        file_layout = QGridLayout(file_group)
+        # File input area: one shared CifDropTarget (drag-drop + Browse, both
+        # funnel into a single cifSelected signal -- see cif_selector.py)
+        # stacked above a compact CifStructureSummary. Same footprint as the
+        # old line-edit+Browse row; the extra summary row fits in the
+        # headroom this cell already has from the taller visualizers beside
+        # it, so the window doesn't grow.
+        file_group = QGroupBox("Crystal Structure File")
+        file_layout = QVBoxLayout(file_group)
 
-        self.file_path_input = DragDropLineEdit()
-        self.file_path_input.textChanged.connect(self.on_cif_file_changed)
-        file_layout.addWidget(self.file_path_input, 0, 0)
+        self._cif_drop_target = CifDropTarget()
+        self._cif_drop_target.cifSelected.connect(self._on_cif_selected)
+        self._cif_drop_target.selectionRejected.connect(self._on_cif_selection_rejected)
+        file_layout.addWidget(self._cif_drop_target)
 
-        browse_button = QPushButton("Browse...")
-        browse_button.clicked.connect(self.browse_cif_file)
-        file_layout.addWidget(browse_button, 0, 1)
-
-        # Allow dropping on the entire group box
-        file_group.set_target_line_edit(self.file_path_input)
+        self._structure_summary = CifStructureSummary()
+        self._structure_summary.set_empty()
+        self._structure_summary.detailsRequested.connect(self._on_details_requested)
+        self._structure_summary.useManualLatticeRequested.connect(self._on_use_manual_lattice_clicked)
+        self._structure_summary.removeStructureRequested.connect(self._on_remove_cif_clicked)
+        file_layout.addWidget(self._structure_summary)
 
         # Add file group to main layout at (1,0) spanning 1 column
         layout.addWidget(file_group, 1, 0, 1, 1)
@@ -305,17 +267,6 @@ class InitWindow(QWidget):
 
         # Add spacer
         layout.setRowStretch(3, 1)
-
-    @pyqtSlot()
-    def browse_cif_file(self):
-        """Browse for CIF file."""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open CIF File", "", "CIF Files (*.cif);;All Files (*)"
-        )
-
-        if file_path:
-            self.file_path_input.setText(file_path)
-            # on_cif_file_changed will be triggered by textChanged
 
     def _invalidate_ub_session(self, *_args):
         """Clear the stored UB-matrix diffraction measurements and any
@@ -335,18 +286,35 @@ class InitWindow(QWidget):
             self.pitch_input.setValue(0.0)
             self.yaw_input.setValue(0.0)
 
+    def _effective_lattice_params(self) -> dict:
+        """The single authoritative (a, b, c, alpha, beta, gamma) for this
+        session: full-precision `StructureSource` values when CIF-derived,
+        the (editable) widget values otherwise.
+
+        `HighPrecisionSpinBox` only controls *displayed* text -- `setValue()`
+        still rounds the internally stored value to `decimals()` (6 for the
+        lattice fields), which is more precision than the old plain
+        `QDoubleSpinBox` had but is still not the CIF's true full precision.
+        UB fitting (`open_diffraction_test_dialog`, `_current_ub_data`'s
+        staleness check) and the setup preview (`update_visualization`) must
+        read the exact same value `initialize()` sends, not separately read
+        the (slightly rounded, for a CIF source) widgets.
+        """
+        source = self.controller.structure_source if self.controller else None
+        if source is not None and source.source_kind == "cif":
+            return {
+                "a": source.a, "b": source.b, "c": source.c,
+                "alpha": source.alpha, "beta": source.beta, "gamma": source.gamma,
+            }
+        return {
+            "a": self.a_input.value(), "b": self.b_input.value(), "c": self.c_input.value(),
+            "alpha": self.alpha_input.value(), "beta": self.beta_input.value(), "gamma": self.gamma_input.value(),
+        }
+
     @pyqtSlot()
     def open_diffraction_test_dialog(self):
         """Open the diffraction test dialog to import orientation from measurements."""
-        # Gather current lattice parameters
-        lattice_params = {
-            "a": self.a_input.value(),
-            "b": self.b_input.value(),
-            "c": self.c_input.value(),
-            "alpha": self.alpha_input.value(),
-            "beta": self.beta_input.value(),
-            "gamma": self.gamma_input.value(),
-        }
+        lattice_params = self._effective_lattice_params()
 
         # Open the dialog, seeded with (and updating) this window's UB session
         # so table rows and the last accepted fit survive close/reopen -- this
@@ -381,150 +349,115 @@ class InitWindow(QWidget):
         self.gamma_input.setEnabled(enabled)
 
     @pyqtSlot(str)
-    def on_cif_file_changed(self, file_path: str):
-        """Handle CIF file path changes: parse CIF and apply lattice params.
-
-        Once a CIF is successfully applied, lattice inputs are locked for the session.
+    def _on_cif_selected(self, path: str):
+        """A CifDropTarget selection (drag-drop or Browse) -- exactly one
+        deliberate import attempt per user action. Delegates validation and
+        acceptance to AppController.import_cif(); this method only ever
+        reflects the returned result, it never mutates accepted state
+        itself. No modal dialog for an ordinary successful load -- the
+        compact inline CifStructureSummary is the feedback surface.
         """
-        try:
-            if self._lattice_locked:
-                # Prevent changing CIF after lock
-                if self._accepted_cif_path and file_path != self._accepted_cif_path:
-                    QMessageBox.warning(
-                        self,
-                        "Lattice Parameters Locked",
-                        "Lattice parameters are locked from a previously accepted CIF. "
-                        "Restart the application to change the CIF.",
-                    )
-                    # revert displayed path
-                    # Block signal to avoid recursion
-                    self.file_path_input.blockSignals(True)
-                    self.file_path_input.setText(self._accepted_cif_path)
-                    self.file_path_input.blockSignals(False)
-                return
+        if self.controller is None:
+            return
+        result = self.controller.import_cif(path)
+        if result.status == "rejected":
+            self._structure_summary.set_rejected(result.message)
 
-            # Empty path - user cleared the field; keep inputs editable
-            if not file_path:
-                self._accepted_cif_path = None
-                self._lattice_locked = False
-                self.set_lattice_inputs_enabled(True)
-                # Clear unit cell visualization
-                self.clear_unitcell_visualization()
-                return
+    @pyqtSlot(str)
+    def _on_cif_selection_rejected(self, message: str):
+        """CifDropTarget rejected the selection itself (multi-file, folder,
+        non-local, wrong extension) before it ever reached the importer."""
+        self._structure_summary.set_rejected(message)
 
-            # Parse CIF using custom readcif function
-            cif = readcif(file_path)
-            if not cif or len(cif.keys()) == 0:
-                raise ValueError("No data found in CIF file")
+    @pyqtSlot()
+    def _on_details_requested(self):
+        source = self._structure_summary.current_source()
+        if source is not None:
+            CifDetailsDialog(source, self).exec_()
 
-            def parse_numeric(value) -> float:
-                s = str(value).strip()
-                if "(" in s:
-                    s = s.split("(")[0]
-                return float(s)
+    @pyqtSlot()
+    def _on_use_manual_lattice_clicked(self):
+        """Keep the currently displayed cell values as a manual starting
+        point, but drop the CIF association and atomic capabilities."""
+        if self.controller is None:
+            return
+        self.controller.use_manual_lattice(
+            self.a_input.value(), self.b_input.value(), self.c_input.value(),
+            self.alpha_input.value(), self.beta_input.value(), self.gamma_input.value(),
+        )
 
-            def get_float(key: str) -> float:
-                value = cif.get(key)
-                if value is None:
-                    raise KeyError(f"Missing required CIF field: {key}")
-                return parse_numeric(value)
+    @pyqtSlot()
+    def _on_remove_cif_clicked(self):
+        if self.controller is not None:
+            self.controller.remove_structure()
 
-            a = get_float("_cell_length_a")
-            b = get_float("_cell_length_b")
-            c = get_float("_cell_length_c")
-            alpha = get_float("_cell_angle_alpha")
-            beta = get_float("_cell_angle_beta")
-            gamma = get_float("_cell_angle_gamma")
-
-            # Basic validation (units assumed Angstroms and degrees)
-            if min(a, b, c) <= 0:
-                raise ValueError("Cell lengths must be positive")
-            for ang, name in [(alpha, "alpha"), (beta, "beta"), (gamma, "gamma")]:
-                if not (0.0 < ang < 180.0):
-                    raise ValueError(
-                        f"Cell angle {name} must be between 0 and 180 degrees"
-                    )
-
-            # Apply to UI and lock
-            self.apply_cif_parameters(a, b, c, alpha, beta, gamma)
-            self._lattice_locked = True
-            self._accepted_cif_path = file_path
-            self.set_lattice_inputs_enabled(False)
-            
-            # Update unit cell visualizer with the CIF file
-            self.update_unitcell_visualization(file_path)
-            
-            QMessageBox.information(
-                self,
-                "CIF Loaded",
-                "Lattice parameters have been loaded from the CIF and inputs are now locked.",
-            )
-
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                "Invalid CIF",
-                f"Failed to read lattice parameters from CIF: {str(e)}",
-            )
-            # clear text and keep inputs editable
-            self.file_path_input.blockSignals(True)
-            self.file_path_input.clear()
-            self.file_path_input.blockSignals(False)
-            self._accepted_cif_path = None
-            self._lattice_locked = False
+    def on_structure_changed(self, source):
+        """Called by AppController whenever the accepted structure changes
+        (a genuine replacement, a switch to manual lattice, or removal) --
+        never for a no-op reselection, since AppController filters those out
+        before this is reached. Renders the new accepted state and performs
+        the unconditional orientation/UB reset REQUIREMENT_1 requires for an
+        actual structure change (distinct from the narrower per-field
+        `_invalidate_ub_session`, which only fires for ordinary edits).
+        """
+        if source is None:
+            self._structure_summary.set_empty()
             self.set_lattice_inputs_enabled(True)
+            self.unitcell_visualizer.reset()
+        else:
+            self._set_lattice_display(source.a, source.b, source.c, source.alpha, source.beta, source.gamma)
+            self.set_lattice_inputs_enabled(source.source_kind != "cif")
+            self._structure_summary.set_source(source)
+            # Gate on structure_factor_ok, not geometry_ok: a geometry-only
+            # CIF (valid cell, no usable atoms) still has geometry_ok=True,
+            # but constructing a Crystal for the preview would render
+            # Dans_Diffraction's silently-fabricated default atom -- not a
+            # real atom from the file. Show the cell-only state (reset) in
+            # that case instead of a fictitious structure.
+            if source.source_kind == "cif" and source.capabilities.structure_factor_ok:
+                self.update_unitcell_visualization(source.effective_path)
+            else:
+                self.unitcell_visualizer.reset()
 
-    def apply_cif_parameters(
-        self, a: float, b: float, c: float, alpha: float, beta: float, gamma: float
-    ):
-        """Set lattice parameter inputs from parsed CIF values and refresh visualization."""
-        # Block signals to avoid multiple redraws
-        self.a_input.blockSignals(True)
-        self.b_input.blockSignals(True)
-        self.c_input.blockSignals(True)
-        self.alpha_input.blockSignals(True)
-        self.beta_input.blockSignals(True)
-        self.gamma_input.blockSignals(True)
-
-        self.a_input.setValue(a)
-        self.b_input.setValue(b)
-        self.c_input.setValue(c)
-        self.alpha_input.setValue(alpha)
-        self.beta_input.setValue(beta)
-        self.gamma_input.setValue(gamma)
-
-        self.a_input.blockSignals(False)
-        self.b_input.blockSignals(False)
-        self.c_input.blockSignals(False)
-        self.alpha_input.blockSignals(False)
-        self.beta_input.blockSignals(False)
-        self.gamma_input.blockSignals(False)
-
-        # Signals were blocked above (to avoid multiple redraws), so this
-        # CIF-driven lattice change wouldn't otherwise reach the UB-session
-        # invalidation wired to valueChanged -- clear it explicitly.
-        self._invalidate_ub_session()
-
-        # Update visualization with new parameters
+        self._on_structure_replaced()
         self.update_visualization()
 
-    def update_unitcell_visualization(self, cif_file_path: str):
-        """Update the unit cell visualizer with a new CIF file."""
-        try:
-            self.unitcell_visualizer.set_parameters({"cif_file": cif_file_path})
-            self.unitcell_visualizer.visualize_unitcell()
-        except Exception as e:
-            print(f"Error updating unit cell visualization: {e}")
+    def _set_lattice_display(self, a, b, c, alpha, beta, gamma):
+        """Set the lattice spinboxes without re-triggering UB invalidation
+        or a redraw for each individual field -- `on_structure_changed`
+        does both once, explicitly, after all six are set."""
+        for widget, value in (
+            (self.a_input, a), (self.b_input, b), (self.c_input, c),
+            (self.alpha_input, alpha), (self.beta_input, beta), (self.gamma_input, gamma),
+        ):
+            widget.blockSignals(True)
+            widget.setValue(value)
+            widget.blockSignals(False)
 
-    def clear_unitcell_visualization(self):
-        """Clear the unit cell visualization."""
-        try:
-            self.unitcell_visualizer.axes.clear()
-            self.unitcell_visualizer.axes.set_facecolor("white")
-            self.unitcell_visualizer.axes.set_axis_off()
-            self.unitcell_visualizer.draw()
-        except Exception as e:
-            print(f"Error clearing unit cell visualization: {e}")
+    def _on_structure_replaced(self):
+        """Unconditionally clear the UB session and zero the Euler-angle
+        fields, including manually-entered ones, for an actual structure
+        change. Distinct from `_invalidate_ub_session`, which only zeroes
+        Euler fields if they came from an applied fit -- an ordinary manual
+        edit to one lattice field shouldn't discard a manually-typed
+        orientation, but a structure replacement/removal should.
+        """
+        self._ub_session.clear()
+        self._applied_ub_result = None
+        self.roll_input.setValue(0.0)
+        self.pitch_input.setValue(0.0)
+        self.yaw_input.setValue(0.0)
+
+    def update_unitcell_visualization(self, cif_file_path: str):
+        """Update the unit cell visualizer with a new CIF file.
+
+        UnitcellVisualizer.set_parameters()/visualize_unitcell() already
+        catch and record their own failures (`render_error_message`,
+        surfaced inline on the plot) rather than raising, so this is a thin
+        pass-through.
+        """
+        self.unitcell_visualizer.set_parameters({"cif_file": cif_file_path})
+        self.unitcell_visualizer.visualize_unitcell()
 
     @pyqtSlot()
     def update_visualization(self):
@@ -548,12 +481,7 @@ class InitWindow(QWidget):
             # Update the visualizer
             self.visualizer.initialize(
                 {
-                    "a": self.a_input.value(),
-                    "b": self.b_input.value(),
-                    "c": self.c_input.value(),
-                    "alpha": self.alpha_input.value(),
-                    "beta": self.beta_input.value(),
-                    "gamma": self.gamma_input.value(),
+                    **self._effective_lattice_params(),
                     "roll": roll,
                     "pitch": pitch,
                     "yaw": yaw,
@@ -581,38 +509,48 @@ class InitWindow(QWidget):
         result = self._applied_ub_result
         if result is None or not result.valid:
             return None
-        current_lattice = {
-            "a": self.a_input.value(), "b": self.b_input.value(), "c": self.c_input.value(),
-            "alpha": self.alpha_input.value(), "beta": self.beta_input.value(), "gamma": self.gamma_input.value(),
-        }
+        current_lattice = self._effective_lattice_params()
         if result.lattice_params != current_lattice:
             return None  # defense in depth; _invalidate_ub_session should already have cleared this
         return [m.to_dict() for m in result.measurements]
 
     @pyqtSlot()
     def initialize(self):
-        """Initialize the application with the provided parameters."""
+        """Initialize the application with the provided parameters.
+
+        For a CIF-derived structure, a/b/c/alpha/beta/gamma and cif_file
+        come from the accepted StructureSource (full precision, and the
+        immutable session snapshot path), not from these display widgets --
+        the widgets are read-only in that case and exist for display only.
+        Manual-mode values are read straight from the (editable) widgets.
+        """
         try:
-            # Get parameters
+            source = self.controller.structure_source if self.controller else None
+            cif_file = source.effective_path if (source is not None and source.source_kind == "cif") else None
+
             params = {
-                "a": self.a_input.value(),
-                "b": self.b_input.value(),
-                "c": self.c_input.value(),
-                "alpha": self.alpha_input.value(),
-                "beta": self.beta_input.value(),
-                "gamma": self.gamma_input.value(),
+                **self._effective_lattice_params(),
                 "energy": self.energy_input.value(),
                 "wavevector": self.wavevector_input.value(),
                 "wavelength": self.wavelength_input.value(),
-                "cif_file": (
-                    self.file_path_input.text() if self.file_path_input.text() else None
-                ),
+                "cif_file": cif_file,
                 "roll": self.roll_input.value(),
                 "pitch": self.pitch_input.value(),
                 "yaw": self.yaw_input.value(),
                 "ub_data": self._current_ub_data(), # angles and HKL that were used to calculate the orientation from diffraction tests
             }
 
+            # Calls AppController.apply_parameters() directly (a plain
+            # synchronous method call) rather than relying solely on
+            # `initialized.emit(params)` -- PyQt5 does not propagate an
+            # exception raised inside a connected slot back through the
+            # emitting call (verified: it goes to sys.excepthook instead,
+            # and emit() returns normally), so a failure inside
+            # apply_parameters() previously never reached this method's own
+            # except block below. `initialized` is still emitted afterward
+            # so any other interested listener still sees success.
+            if self.controller is not None:
+                self.controller.apply_parameters(params)
             self.initialized.emit(params)
 
         except Exception as e:
@@ -677,13 +615,11 @@ class InitWindow(QWidget):
             QMessageBox.warning(self, "Warning", f"Error converting wavevector: {str(e)}")
 
     def reset_inputs(self):
-        """Clear CIF lock and re-enable lattice inputs."""
-        self._lattice_locked = False
-        self._accepted_cif_path = None
-        self.file_path_input.blockSignals(True)
-        self.file_path_input.clear()
-        self.file_path_input.blockSignals(False)
-        self.set_lattice_inputs_enabled(True)
-        self.clear_unitcell_visualization()
-        self._invalidate_ub_session()
-        self.update_visualization()
+        """Return the setup view to a clean, no-structure state.
+
+        Shares its UI-reset logic with the "Remove CIF" action via
+        `on_structure_changed(None)` -- AppController.reset_parameters()
+        clears `structure_source`/`parameters` and invalidates every feature
+        before calling this, so the two only differ in who initiated them.
+        """
+        self.on_structure_changed(None)

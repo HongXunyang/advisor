@@ -3,11 +3,11 @@
 # pylint: disable=no-name-in-module, import-error
 import matplotlib
 from PyQt5.QtCore import QMimeData, Qt, pyqtSlot
-from PyQt5.QtGui import QBrush, QColor, QDragEnterEvent, QDropEvent, QFont
+from PyQt5.QtGui import QBrush, QColor, QFont
 from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
-                             QFileDialog, QFormLayout, QFrame, QGridLayout,
+                             QFormLayout, QFrame, QGridLayout,
                              QGroupBox, QHBoxLayout, QHeaderView, QLabel,
-                             QLineEdit, QMessageBox, QPushButton, QRadioButton,
+                             QMessageBox, QPushButton, QRadioButton,
                              QTableWidget, QTableWidgetItem, QTabWidget,
                              QVBoxLayout, QWidget)
 
@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
 matplotlib.use("Qt5Agg")
 
 from advisor.features.scattering_geometry.domain import BrillouinCalculator
+from advisor.ui.dialogs.change_structure_dialog import ChangeStructureDialog, change_structure_icon
 from advisor.ui.tab_interface import TabInterface
 from advisor.ui.tips import Tips, set_tip
 from advisor.ui.visualizers import (HKLScan2DVisualizer, ScatteringVisualizer,
@@ -24,31 +25,6 @@ from .components import (AnglesToHKLControls, AnglesToHKLResults,
                          HKAnglesControls, HKAnglesResultsWidget,
                          HKLScanControls, HKLScanResultsTable,
                          HKLToAnglesControls, HKLToAnglesResultsWidget)
-
-
-class DragDropLineEdit(QLineEdit):
-    """Custom QLineEdit that accepts drag and drop events."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-        self.setPlaceholderText("Drag and drop CIF file here or click Browse...")
-        self.setReadOnly(True)
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            urls = event.mimeData().urls()
-            if urls and urls[0].toLocalFile().endswith(".cif"):
-                event.acceptProposedAction()
-
-    def dropEvent(self, event: QDropEvent):
-        urls = event.mimeData().urls()
-        if urls:
-            file_path = urls[0].toLocalFile()
-            if file_path.endswith(".cif"):
-                self.setText(file_path)
-                # Emit the textChanged signal to notify parent
-                self.textChanged.emit(file_path)
 
 
 class ScatteringGeometryTab(TabInterface):
@@ -141,13 +117,15 @@ class ScatteringGeometryTab(TabInterface):
         # Add stretch to push edit button to the bottom
         header_layout.addStretch()
 
-        # Edit button
-        edit_button = QPushButton("Reset Parameters")
-        edit_button.setObjectName("editParametersButton")
-        edit_button.setToolTip("Return to parameter initialization window")
-        edit_button.clicked.connect(self._edit_parameters)
-        edit_button.setFixedHeight(35)  # Reduced from 45 to 35
-        header_layout.addWidget(edit_button)
+        # Change structure / start over button -- opens the same dialog as
+        # the toolbar/menu action, reachable from this tab too.
+        change_structure_button = QPushButton("Change Structure…")
+        change_structure_button.setObjectName("changeStructureButton")
+        change_structure_button.setIcon(change_structure_icon())
+        change_structure_button.setToolTip("Pick a different CIF, or start over from a blank setup")
+        change_structure_button.clicked.connect(self._open_change_structure_dialog)
+        change_structure_button.setFixedHeight(35)  # Reduced from 45 to 35
+        header_layout.addWidget(change_structure_button)
 
         # Add header to main layout - right side
         self.layout.addWidget(header_frame, 0, 1)
@@ -170,13 +148,41 @@ class ScatteringGeometryTab(TabInterface):
         for obj in self.funtional_objects:
             obj.initialize(params=params)
 
-        # Initialize unit cell visualizers if CIF file is provided
+        # Initialize unit cell visualizers if a CIF file is provided AND its
+        # atomic data is actually usable -- a geometry-only structure (valid
+        # cell, no usable atoms) must not render Dans_Diffraction's
+        # silently-fabricated default atom. Reset (no stale/fabricated
+        # preview) otherwise.
         cif_file = params.get('cif_file')
-        if cif_file:
+        if cif_file and self._structure_factor_capability_ok():
             self._update_unitcell_visualizers(cif_file)
-            
+        else:
+            for viz in (
+                self.angles_to_hkl_unitcell_viz,
+                self.hkl_to_angles_unitcell_viz,
+                self.hk_fixed_tth_unitcell_viz,
+            ):
+                viz.reset()
+
         # HKL scan visualizer uses trajectory-only mode, no structure factor calculator needed
 
+    def _structure_factor_capability_ok(self) -> bool:
+        """Whether the accepted structure's atomic data supports rendering
+        real atoms in the unit-cell preview, not just a valid cell.
+
+        Reached via the app controller (same pattern as
+        StructureFactorTab._capability_block_message()) rather than
+        widening the params dict. Fails open (True) when there's no
+        reachable structure_source -- e.g. a standalone tab built directly
+        in a test with controller=None -- since that's not a case this
+        check is meant to guard.
+        """
+        if not self.controller:
+            return True
+        source = getattr(self.controller.app_controller, "structure_source", None)
+        if source is None:
+            return True
+        return source.capabilities.structure_factor_ok
 
     def _update_unitcell_visualizers(self, cif_file_path: str):
         """Update all unit cell visualizers with the CIF file."""
@@ -223,10 +229,14 @@ class ScatteringGeometryTab(TabInterface):
         self.xray_info_label.setText(xray_text)
 
     @pyqtSlot()
-    def _edit_parameters(self):
-        """Return to parameter initialization window."""
-        if self.controller:
-            self.controller.app_controller.reset_parameters()
+    def _open_change_structure_dialog(self):
+        """Same single entry point as the main window's toolbar/menu action --
+        pick a different CIF, or use the dialog's own "Start over" button
+        for the full destructive reset."""
+        if not self.controller:
+            return
+        dialog = ChangeStructureDialog(self.controller.app_controller, self)
+        dialog.exec_()
 
     def _set_tip(self, widget, name):
         """Set the tooltip and status tip for a widget by the name"""
@@ -470,16 +480,6 @@ class ScatteringGeometryTab(TabInterface):
                 
         except Exception as e:
             print(f"**Error** updating HKL visualization: {e}")
-
-    @pyqtSlot()
-    def browse_cif_file(self):
-        """Browse for CIF file."""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open CIF File", "", "CIF Files (*.cif);;All Files (*)"
-        )
-
-        if file_path:
-            self.file_path_input.setText(file_path)
 
     @pyqtSlot()
     def calculate_hkl(self):
@@ -728,43 +728,36 @@ class ScatteringGeometryTab(TabInterface):
         """Get the backend module instance."""
         return self.calculator
 
-    def get_state(self):
-        """Get the current state for session saving."""
-        return {
-            "lattice": {
-                "a": self.a_input.value(),
-                "b": self.b_input.value(),
-                "c": self.c_input.value(),
-                "alpha": self.alpha_input.value(),
-                "beta": self.beta_input.value(),
-                "gamma": self.gamma_input.value(),
-            },
-            "energy": self.energy_input.value(),
-            "file_path": self.file_path_input.text(),
-            "current_tab": self.tab_widget.currentIndex(),
-        }
+    def clear(self):
+        """Discard all structure-dependent results/plots for a structure
+        change (replace, remove, or reset) -- called by
+        ScatteringGeometryController.invalidate_structure() after it has
+        already rebound self.calculator to a fresh, uninitialized instance.
 
-    def set_state(self, state):
-        """Restore tab state from saved session."""
-        try:
-            if "lattice" in state:
-                lattice = state["lattice"]
-                self.a_input.setValue(lattice.get("a", 5.0))
-                self.b_input.setValue(lattice.get("b", 5.0))
-                self.c_input.setValue(lattice.get("c", 5.0))
-                self.alpha_input.setValue(lattice.get("alpha", 90.0))
-                self.beta_input.setValue(lattice.get("beta", 90.0))
-                self.gamma_input.setValue(lattice.get("gamma", 90.0))
+        Re-syncs funtional_objects[0] (used by set_parameters()'s
+        initialize loop) to the new calculator, clears displayed results and
+        their accumulated history, resets all three unit-cell previews, and
+        clears the HKL-scan table/plot -- so nothing left over from the
+        previous structure can be mistaken for a result of the new one.
+        """
+        if self.funtional_objects:
+            self.funtional_objects[0] = self.calculator
 
-            if "energy" in state:
-                self.energy_input.setValue(state["energy"])
+        self.clear_hkl_to_angles_results()
+        self.clear_hk_tth_fixed_results()
+        self.hkl_to_angles_results.clear_history()
+        self.hk_angles_results.clear_history()
+        if hasattr(self, "angles_to_hkl_results"):
+            self.angles_to_hkl_results.clear_results()
 
-            if "file_path" in state and state["file_path"]:
-                self.file_path_input.setText(state["file_path"])
+        for viz in (
+            self.angles_to_hkl_unitcell_viz,
+            self.hkl_to_angles_unitcell_viz,
+            self.hk_fixed_tth_unitcell_viz,
+        ):
+            viz.reset()
 
-            if "current_tab" in state:
-                self.tab_widget.setCurrentIndex(state["current_tab"])
-
-            return True
-        except Exception:
-            return False
+        if hasattr(self, "hkl_scan_results_table"):
+            self.hkl_scan_results_table.setRowCount(0)
+        if hasattr(self, "hkl_scan_visualizer"):
+            self.hkl_scan_visualizer.clear_plot()

@@ -249,7 +249,7 @@ class HKLScan2DVisualizer(FigureCanvas):
 
         ellipse = Ellipse(xy=(0, 0), width=2*x_max, height=2*y_max, angle=0, color='#80e8be', alpha=0.35, edgecolor='none')
         self.axes.add_patch(ellipse)
-        
+
         # put a gray text on the top left corner of the plot
         if message is not None:
             self.axes.text(0.02, 0.985, message, color='gray', fontsize=8, transform=self.axes.transAxes, va="top", alpha = 0.65)
@@ -257,3 +257,24 @@ class HKLScan2DVisualizer(FigureCanvas):
         self.axes.text(0,0.1,"accessible area", color='#52a38b', fontsize=8, ha="center")
         self.draw()
         return True
+
+    def clear_plot(self):
+        """Clear the plot and any stored scan state.
+
+        Was previously called from three sites in this class (and by
+        ScatteringGeometryTab) without being defined -- each call site
+        wraps its caller in a broad try/except, so the resulting
+        AttributeError was silently swallowed rather than actually clearing
+        anything. Needed for real by the structure-change invalidation
+        cascade (REQUIREMENT_1), not left as a latent no-op.
+        """
+        if self._colorbar is not None:
+            try:
+                self._colorbar.remove()
+            except Exception:
+                pass
+            self._colorbar = None
+        self.fig.clear()
+        self.axes = self.fig.add_subplot(111)
+        self.last_scan_results = None
+        self.draw()

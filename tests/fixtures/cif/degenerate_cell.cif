@@ -1,0 +1,11 @@
+data_degenerate_cell_test
+_cell_length_a                   5.0
+_cell_length_b                   5.0
+_cell_length_c                   5.0
+_cell_angle_alpha                10.0
+_cell_angle_beta                 10.0
+_cell_angle_gamma                170.0
+_atom_site_label                 Fe1
+_atom_site_fract_x                0.0
+_atom_site_fract_y                0.0
+_atom_site_fract_z                0.0

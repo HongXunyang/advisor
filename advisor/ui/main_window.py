@@ -18,6 +18,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
 
+from advisor.ui.dialogs.change_structure_dialog import ChangeStructureDialog, change_structure_icon
+
 
 class MainWindow(QMainWindow):
     """Application shell: hosts init view and feature tabs."""
@@ -65,35 +67,38 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Main Toolbar", self)
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(24, 24))
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.addToolBar(toolbar)
 
-        reset_action = QAction(self)
-        reset_action.setText("Reset Parameters")
-        reset_action.setToolTip("Return to initialization")
-        reset_icon = self._icon_path("reset.png")
-        if reset_icon and os.path.exists(reset_icon):
-            reset_action.setIcon(QIcon(reset_icon))
-        reset_action.triggered.connect(self.controller.reset_parameters)
-        toolbar.addAction(reset_action)
+        change_structure_action = QAction(self)
+        change_structure_action.setText("Change Structure…")
+        change_structure_action.setIcon(change_structure_icon())
+        change_structure_action.setToolTip(
+            "Pick a different CIF, or start over from a blank setup"
+        )
+        change_structure_action.triggered.connect(self._open_change_structure_dialog)
+        toolbar.addAction(change_structure_action)
 
     def _create_menu(self):
         file_menu = self.menuBar().addMenu("&File")
 
-        open_action = QAction("&Open", self)
+        open_action = QAction("&Open CIF…", self)
         open_action.setShortcut("Ctrl+O")
-        open_action.triggered.connect(self._open_file)
+        open_action.triggered.connect(self._open_cif)
         file_menu.addAction(open_action)
+
+        # The sole entry point for both replacing the structure and the
+        # full destructive reset (its "Start over" button) -- previously a
+        # separate "Reset Parameters" action duplicated this surface.
+        change_structure_action = QAction(change_structure_icon(), "&Change Structure…", self)
+        change_structure_action.setShortcut("Ctrl+R")
+        change_structure_action.triggered.connect(self._open_change_structure_dialog)
+        file_menu.addAction(change_structure_action)
 
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self._save_file)
         file_menu.addAction(save_action)
-
-        file_menu.addSeparator()
-        reset_action = QAction("&Reset Parameters", self)
-        reset_action.setShortcut("Ctrl+R")
-        reset_action.triggered.connect(self.controller.reset_parameters)
-        file_menu.addAction(reset_action)
 
         file_menu.addSeparator()
         exit_action = QAction("E&xit", self)
@@ -123,6 +128,10 @@ class MainWindow(QMainWindow):
         index = self.tab_widget.count() - 1
         self.tab_widget.setTabToolTip(index, tooltip or title)
 
+    def is_showing_tabs(self) -> bool:
+        """Whether the feature-tabs page (rather than the init/setup page) is current."""
+        return self.stacked_widget.currentWidget() is self.tab_widget
+
     def show_tabs(self):
         """Switch to the main tab view."""
         self.stacked_widget.setCurrentWidget(self.tab_widget)
@@ -134,18 +143,26 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentWidget(self.init_view)
             self.statusBar().showMessage("Please initialize lattice parameters")
 
-    def _open_file(self):
+    def _open_cif(self):
+        """File > Open CIF… -- routes through the same shared importer as
+        drag-drop/Browse/Change Structure (AppController.import_cif), not a
+        per-tab file handler."""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open File", "", "All Files (*);;JSON Files (*.json);;CIF Files (*.cif)"
+            self, "Open CIF File", "", "CIF Files (*.cif *.CIF);;All Files (*)"
         )
         if not file_path:
             return
 
-        current_widget = self.tab_widget.currentWidget()
-        if hasattr(current_widget, "open_file"):
-            current_widget.open_file(file_path)
-        else:
-            self.statusBar().showMessage("Current tab does not support opening files")
+        result = self.controller.import_cif(file_path)
+        timeout = 8000 if result.status == "rejected" else 5000
+        self.statusBar().showMessage(result.message, timeout)
+
+    def _open_change_structure_dialog(self):
+        """The single entry point for both replacing the structure and
+        starting over (via the dialog's own "Start over" button) --
+        reachable from setup or any feature tab."""
+        dialog = ChangeStructureDialog(self.controller, self)
+        dialog.exec_()
 
     def _save_file(self):
         file_path, _ = QFileDialog.getSaveFileName(

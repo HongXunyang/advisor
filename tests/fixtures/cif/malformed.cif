@@ -1,0 +1,3 @@
+This is not a CIF file at all, just some random prose with no data_ block
+and none of the required cell tags, to exercise the "missing required cell
+parameters" rejection path.

@@ -23,10 +23,6 @@ class TabInterface(QWidget):
         """Initialize UI components."""
         raise NotImplementedError("Subclasses must implement init_ui()")
 
-    def open_file(self, file_path: str):
-        """Handle opening a file."""
-        return False
-
     def save_file(self, file_path: str):
         """Handle saving to a file."""
         return False

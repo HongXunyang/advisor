@@ -1,0 +1,14 @@
+data_phase_one
+_cell_length_a                   5.0
+_cell_length_b                   5.0
+_cell_length_c                   5.0
+_cell_angle_alpha                90.0
+_cell_angle_beta                 90.0
+_cell_angle_gamma                90.0
+data_phase_two
+_cell_length_a                   6.0
+_cell_length_b                   6.0
+_cell_length_c                   6.0
+_cell_angle_alpha                90.0
+_cell_angle_beta                 90.0
+_cell_angle_gamma                90.0

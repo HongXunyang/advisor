@@ -165,6 +165,18 @@ class StructureFactorTab(TabInterface):
         # Add to tab widget
         self.tab_widget.addTab(self.customized_plane_widget, "Customized plane")
 
+    def _capability_block_message(self) -> str:
+        """Non-empty iff the accepted structure exists but is known (from
+        CIF-content inspection, not from a Crystal() construction that could
+        succeed even for a structure-factor-incapable file) to have no
+        usable atomic data -- lets Initialize fail with the *specific*
+        reason instead of attempting a doomed calculation.
+        """
+        source = getattr(self.controller.app_controller, "structure_source", None) if self.controller else None
+        if source is not None and not source.capabilities.structure_factor_ok:
+            return source.capabilities.message
+        return ""
+
     @pyqtSlot()
     def initialize_calculator_hkl(self):
         """Initialize the structure factor calculator for HKL plane tab."""
@@ -177,6 +189,12 @@ class StructureFactorTab(TabInterface):
                     "Missing CIF",
                     "Please load a valid CIF file in the initialization window first.",
                 )
+                return
+
+            block_message = self._capability_block_message()
+            if block_message:
+                QMessageBox.warning(self, "Structure Factors Unavailable", block_message)
+                self.hkl_controls.set_status(block_message, "orange")
                 return
 
             energy_ev = self.hkl_controls.get_energy_ev()
@@ -219,6 +237,13 @@ class StructureFactorTab(TabInterface):
                 return
 
             controls = self.customized_plane_widget.get_controls()
+
+            block_message = self._capability_block_message()
+            if block_message:
+                QMessageBox.warning(self, "Structure Factors Unavailable", block_message)
+                controls.set_status(block_message, "orange")
+                return
+
             energy_ev = controls.get_energy_ev()
             self.calculator.initialize(cif_path, energy_ev)
 
@@ -326,13 +351,46 @@ class StructureFactorTab(TabInterface):
         """Get the backend module instance."""
         return self.calculator
 
+    def rebind_calculator(self, calculator):
+        """Point every widget that holds its own calculator reference at
+        `calculator` -- called by StructureFactorController.invalidate_structure()
+        instead of a plain `self.calculator = calculator` attribute set.
+
+        `CustomizedPlaneWidget` receives its calculator once via
+        `set_calculator()` at construction and keeps its own independent
+        reference (unlike `HKLPlane2DWidget`, which is handed the tab's
+        `self.calculator` fresh on every call) -- so a structure change that
+        only rebinds `self.calculator` on the tab leaves that one child
+        silently still pointing at the just-discarded instance. This was a
+        real bug on the very first CIF import, not only on replacement,
+        since `AppController.import_cif()` invalidates every feature before
+        Initialize even on a brand-new session.
+        """
+        self.calculator = calculator
+        if hasattr(self, "customized_plane_widget"):
+            self.customized_plane_widget.set_calculator(calculator)
+
     def clear(self):
-        """Clear all inputs and results."""
-        # Clear visualizations
+        """Discard all structure-dependent state for a structure change
+        (replace, remove, or reset) -- called by
+        StructureFactorController.invalidate_structure() after it has
+        already rebound self.calculator to a fresh, uninitialized instance.
+
+        clear_plots() on both subtabs already clears plots, structure-factor
+        snapshots, and hover/inaccessible-overlay state (a full
+        matplotlib fig.clear(), not an incremental redraw). This adds
+        resetting the "Calculator initialized successfully" status text,
+        which would otherwise misleadingly persist even though the
+        calculator underneath it was just discarded.
+        """
         if hasattr(self, 'hkl_plane_2d'):
             self.hkl_plane_2d.clear_plots()
         if hasattr(self, 'customized_plane_widget'):
             self.customized_plane_widget.clear_plots()
+        if hasattr(self, 'hkl_controls'):
+            self.hkl_controls.set_status("Not initialized", "gray")
+        if hasattr(self, 'customized_plane_widget'):
+            self.customized_plane_widget.get_controls().set_status("Not initialized", "gray")
 
     def get_state(self):
         """Get the current state for session saving."""

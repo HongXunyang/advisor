@@ -1,0 +1,18 @@
+data_single_block_test
+_cell_length_a                   5.0
+_cell_length_b                   5.0
+_cell_length_c                   5.0
+_cell_angle_alpha                90.0
+_cell_angle_beta                 90.0
+_cell_angle_gamma                90.0
+_publ_section_comment
+;
+Example block name:
+data_example
+;
+loop_
+_atom_site_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 0.0 0.0 0.0
