@@ -12,6 +12,7 @@ recently produced -- it holds no import logic of its own.
 """
 
 import os
+from typing import Optional
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFontMetrics
@@ -20,7 +21,9 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -125,11 +128,18 @@ class CifStructureSummary(QWidget):
     inline, eliding long names rather than growing the layout. Path, full
     cell, space group, and source detail are deliberately not shown here --
     see the on-demand `CifDetailsDialog` for that.
+
+    Also hosts the compact `Structures ▾` menu button (My structures…/Try an
+    example) -- always visible, empty state or populated -- one small
+    `QToolButton` rather than two separate buttons, to minimize how much
+    this already-tight area grows (REQUIREMENT_2).
     """
 
     detailsRequested = pyqtSignal()
     useManualLatticeRequested = pyqtSignal()
     removeStructureRequested = pyqtSignal()
+    libraryPickerRequested = pyqtSignal()
+    tryExampleRequested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -146,20 +156,44 @@ class CifStructureSummary(QWidget):
         self._status_label.setWordWrap(True)
         outer.addWidget(self._status_label)
 
+        self._library_note_label = QLabel("")
+        self._library_note_label.setWordWrap(True)
+        self._library_note_label.setStyleSheet(f"color: {_STATUS_COLORS['empty']};")
+        self._library_note_label.setVisible(False)
+        outer.addWidget(self._library_note_label)
+
+        structures_row = QHBoxLayout()
+        structures_row.setContentsMargins(0, 2, 0, 0)
+        structures_row.addStretch(1)
+
+        self._structures_button = QToolButton()
+        self._structures_button.setObjectName("cifCompactAction")
+        self._structures_button.setText("Structures ▾")
+        self._structures_button.setPopupMode(QToolButton.InstantPopup)
+        structures_menu = QMenu(self._structures_button)
+        structures_menu.addAction("My structures…", self.libraryPickerRequested.emit)
+        structures_menu.addAction("Try an example", self.tryExampleRequested.emit)
+        self._structures_button.setMenu(structures_menu)
+        structures_row.addWidget(self._structures_button)
+        outer.addLayout(structures_row)
+
         actions = QHBoxLayout()
         actions.setContentsMargins(0, 2, 0, 0)
 
         self._details_button = QPushButton("Details…")
+        self._details_button.setObjectName("cifCompactAction")
         self._details_button.clicked.connect(self.detailsRequested.emit)
         self._details_button.setVisible(False)
         actions.addWidget(self._details_button)
 
         self._manual_button = QPushButton("Use manual lattice")
+        self._manual_button.setObjectName("cifCompactAction")
         self._manual_button.clicked.connect(self.useManualLatticeRequested.emit)
         self._manual_button.setVisible(False)
         actions.addWidget(self._manual_button)
 
         self._remove_button = QPushButton("Remove CIF")
+        self._remove_button.setObjectName("cifCompactAction")
         self._remove_button.clicked.connect(self.removeStructureRequested.emit)
         self._remove_button.setVisible(False)
         actions.addWidget(self._remove_button)
@@ -182,10 +216,24 @@ class CifStructureSummary(QWidget):
         self._details_button.setVisible(False)
         self._manual_button.setVisible(False)
         self._remove_button.setVisible(False)
+        self.set_library_note(None)
+
+    def set_library_note(self, message: Optional[str]):
+        """Quiet, non-modal confirmation/warning about local library
+        persistence for the just-accepted structure (e.g. "Added to My
+        structures." or a storage-failure notice) -- distinct from
+        `_status_label`'s scientific-readiness message."""
+        if message:
+            self._library_note_label.setText(message)
+            self._library_note_label.setVisible(True)
+        else:
+            self._library_note_label.clear()
+            self._library_note_label.setVisible(False)
 
     def set_source(self, source):
         """Display an accepted `StructureSource` (CIF-derived or manual)."""
         self._source = source
+        self.set_library_note(None)
         name = source.display_name
         if source.formula:
             name = f"{name} ({source.formula})"

@@ -190,6 +190,52 @@ class TestAtomDataMustBeActuallyUsable:
             cif_io.cleanup_snapshot(effective_path)
 
 
+class TestDescriptiveMetadataNullMarkers:
+    """REVIEW.md finding #9: CIF null markers ('.'/'?') must not be shown as
+    if they were real source-id/DOI/formula/space-group values."""
+
+    _BASE = (
+        "data_null_marker_test\n"
+        "_cell_length_a 5.0\n_cell_length_b 5.0\n_cell_length_c 5.0\n"
+        "_cell_angle_alpha 90.0\n_cell_angle_beta 90.0\n_cell_angle_gamma 90.0\n"
+        "loop_\n_atom_site_label\n_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n"
+        "Si1 0.0 0.0 0.0\n"
+    )
+
+    def test_dot_and_question_mark_doi_and_source_id_are_treated_as_absent(self, tmp_path):
+        path = tmp_path / "nulls.cif"
+        path.write_text(
+            self._BASE
+            + "_journal_paper_doi ?\n"
+            + "_cod_database_code .\n"
+            + "_chemical_formula_sum ?\n"
+            + "_symmetry_space_group_name_H-M .\n"
+        )
+        result, effective_path = _prepare(str(path))
+        try:
+            assert result.status == "ready"
+            assert result.source.doi is None
+            assert result.source.source_id is None
+            assert result.source.formula is None
+            assert result.source.space_group is None
+        finally:
+            cif_io.cleanup_snapshot(effective_path)
+
+    def test_real_values_still_pass_through(self, tmp_path):
+        path = tmp_path / "real.cif"
+        path.write_text(
+            self._BASE
+            + "_journal_paper_doi 10.1107/S0108768103021761\n"
+            + "_cod_database_code 2104025\n"
+        )
+        result, effective_path = _prepare(str(path))
+        try:
+            assert result.source.doi == "10.1107/S0108768103021761"
+            assert result.source.source_id == "2104025"
+        finally:
+            cif_io.cleanup_snapshot(effective_path)
+
+
 class TestMultiBlockDetectionIsCifAware:
     """Regression tests for a review finding: the original `^data_` regex
     only matched at true column zero (missing an indented second block,

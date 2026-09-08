@@ -2,6 +2,24 @@
 import numpy as np
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _isolated_library_root(tmp_path, monkeypatch):
+    """Redirect every test's local structure library to a fresh `tmp_path`.
+
+    `AppController`/`LibraryService` resolve the real per-user app-data
+    directory (via `QStandardPaths`) only when `library_root` is not given
+    explicitly. This autouse fixture monkeypatches that default-root
+    resolver so *every* test -- old and new, with or without an explicit
+    `library_root` -- automatically gets an isolated, pristine library with
+    zero risk of ever touching the real user's data and zero cross-test
+    pollution, without needing to edit any existing test file.
+    """
+    monkeypatch.setattr(
+        "advisor.controllers.library_service.default_root",
+        lambda: str(tmp_path / "library"),
+    )
+
 # =============================================================================
 # Lattice Configuration Registry
 # =============================================================================

@@ -254,6 +254,8 @@ class InitWindow(QWidget):
         self._structure_summary.detailsRequested.connect(self._on_details_requested)
         self._structure_summary.useManualLatticeRequested.connect(self._on_use_manual_lattice_clicked)
         self._structure_summary.removeStructureRequested.connect(self._on_remove_cif_clicked)
+        self._structure_summary.libraryPickerRequested.connect(self._on_library_picker_requested)
+        self._structure_summary.tryExampleRequested.connect(self._on_try_example_requested)
         file_layout.addWidget(self._structure_summary)
 
         # Add file group to main layout at (1,0) spanning 1 column
@@ -362,6 +364,40 @@ class InitWindow(QWidget):
         result = self.controller.import_cif(path)
         if result.status == "rejected":
             self._structure_summary.set_rejected(result.message)
+        elif result.status == "unchanged":
+            # A genuine "ready"/"ready_geometry_only" accept already shows
+            # its library note via on_structure_changed() below (reached
+            # through every accept entry point, not only this one) -- but an
+            # "unchanged" reselection never invalidates/re-renders anything,
+            # so this is the one status this handler must still surface
+            # itself.
+            self._structure_summary.set_library_note(result.library_note)
+
+    @pyqtSlot()
+    def _on_library_picker_requested(self):
+        if self.controller is None:
+            return
+        from advisor.ui.dialogs.library_picker_dialog import LibraryPickerDialog
+
+        invoking_widget = self.focusWidget()
+        LibraryPickerDialog(self.controller, self).exec_()
+        if invoking_widget is not None:
+            invoking_widget.setFocus()
+
+    @pyqtSlot()
+    def _on_try_example_requested(self):
+        """Loads the sole bundled example through the same accept path as
+        any other CIF -- labeled origin, citation visible in Details…, and
+        respects the remembering preference like any other import."""
+        if self.controller is None:
+            return
+        from advisor.domain.library.bundled_examples import EXAMPLES
+
+        result = self.controller.load_bundled_example(EXAMPLES[0].key)
+        if result.status == "rejected":
+            self._structure_summary.set_rejected(result.message)
+        elif result.status == "unchanged":
+            self._structure_summary.set_library_note(result.library_note)
 
     @pyqtSlot(str)
     def _on_cif_selection_rejected(self, message: str):
@@ -391,7 +427,7 @@ class InitWindow(QWidget):
         if self.controller is not None:
             self.controller.remove_structure()
 
-    def on_structure_changed(self, source):
+    def on_structure_changed(self, source, library_note=None):
         """Called by AppController whenever the accepted structure changes
         (a genuine replacement, a switch to manual lattice, or removal) --
         never for a no-op reselection, since AppController filters those out
@@ -399,6 +435,13 @@ class InitWindow(QWidget):
         the unconditional orientation/UB reset REQUIREMENT_1 requires for an
         actual structure change (distinct from the narrower per-field
         `_invalidate_ub_session`, which only fires for ordinary edits).
+
+        `library_note` is shown here (rather than only by whichever widget's
+        signal handler triggered the accept) so every accept entry point --
+        setup drop/Browse, File>Open CIF, the Change Structure dialog, Try an
+        example, and My structures -- surfaces a consistent "Added"/"could
+        not save" confirmation, not only the setup screen's own handler
+        (REVIEW.md finding #6).
         """
         if source is None:
             self._structure_summary.set_empty()
@@ -408,6 +451,7 @@ class InitWindow(QWidget):
             self._set_lattice_display(source.a, source.b, source.c, source.alpha, source.beta, source.gamma)
             self.set_lattice_inputs_enabled(source.source_kind != "cif")
             self._structure_summary.set_source(source)
+            self._structure_summary.set_library_note(library_note)
             # Gate on structure_factor_ok, not geometry_ok: a geometry-only
             # CIF (valid cell, no usable atoms) still has geometry_ok=True,
             # but constructing a Crystal for the preview would render

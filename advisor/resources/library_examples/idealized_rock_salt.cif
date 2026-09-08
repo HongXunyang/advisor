@@ -1,0 +1,45 @@
+#------------------------------------------------------------------------------
+# IDEALIZED TEACHING STRUCTURE -- bundled with ADVISOR as an offline "Try an
+# example" starting point. This is NOT a specific experimental deposit and
+# carries no COD/ICSD database code or DOI: fabricating one would misrepresent
+# its provenance.
+#
+# Values used, and why:
+#   - Rock-salt (NaCl-type) arrangement, space group Fm-3m (No. 225).
+#   - Cubic lattice constant a = 5.6402 Angstrom: a commonly cited value for
+#     ambient rock salt in standard reference tables (e.g. Wyckoff, Crystal
+#     Structures). Chosen for a recognizable, well-behaved example, not
+#     measured for this file.
+#   - All 8 atoms of the conventional cell are listed explicitly (4x Na on
+#     the 4a Wyckoff position, 4x Cl on 4b) rather than relying on a
+#     symmetry-operator loop, so no symmetry-expansion step is required to
+#     obtain a chemically sensible structure.
+#------------------------------------------------------------------------------
+data_idealized_rock_salt
+_chemical_name_common              'Idealized rock salt (NaCl-type), illustrative'
+_chemical_formula_sum              'Na4 Cl4'
+_space_group_IT_number             225
+_symmetry_space_group_name_H-M     'F m -3 m'
+_symmetry_cell_setting             cubic
+_cell_length_a                     5.6402
+_cell_length_b                     5.6402
+_cell_length_c                     5.6402
+_cell_angle_alpha                  90.0
+_cell_angle_beta                   90.0
+_cell_angle_gamma                  90.0
+_cell_formula_units_Z              4
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Na1 Na 0.0 0.0 0.0 1.0
+Na2 Na 0.0 0.5 0.5 1.0
+Na3 Na 0.5 0.0 0.5 1.0
+Na4 Na 0.5 0.5 0.0 1.0
+Cl1 Cl 0.5 0.5 0.5 1.0
+Cl2 Cl 0.5 0.0 0.0 1.0
+Cl3 Cl 0.0 0.5 0.0 1.0
+Cl4 Cl 0.0 0.0 0.5 1.0

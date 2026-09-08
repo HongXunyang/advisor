@@ -18,6 +18,7 @@ or use the link below to view the demo video.
 - Visualize scattering geometry and unit cells
 - Compute and visualize structure factors in reciprocal space.
 - CIF file drop-in support
+- Local structure library ("My structures"): remembers CIFs you've loaded on this device, with Recent/Starred/search, and a bundled offline example to try immediately
 - Import crystal orientation from diffraction test data
 
 
@@ -75,8 +76,13 @@ python -m advisor
 
 ![Structure factor demo](https://raw.githubusercontent.com/HongXunyang/advisor/main/docs/source/_static/structure_factor_tab_demo.gif)
 
-### 4. Resetting
-Use the toolbar button or **File → Reset Parameters** to return to the init window, clear the CIF lock, and re-enter parameters.
+### 4. My structures and Try an example
+- Click **Structures ▾** next to the CIF area (or **File → My structures…**) to reopen a previously loaded CIF, without finding the original file again.
+- No CIF on hand? **Try an example** loads a small bundled structure, fully offline.
+- Accepted CIFs are remembered automatically on this device (toggle in the picker); removing a saved entry never touches your original file on disk.
+
+### 5. Changing or resetting the structure
+Use the toolbar button or **File → Change Structure…** to pick a different CIF or start over, returning to the init window.
 
 ------
 

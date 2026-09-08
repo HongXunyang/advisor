@@ -67,6 +67,16 @@ QPushButton:disabled {
     background-color: #F8F8F8;
 }
 
+/* Compact secondary actions around the CIF area (Details…/Use manual
+   lattice/Remove CIF/Structures ▾) -- deliberately smaller than the app's
+   standard button so this row of secondary actions doesn't compete visually
+   with primary controls like "Initialize". */
+QPushButton#cifCompactAction, QToolButton#cifCompactAction {
+    padding: 3px 8px;
+    min-height: 20px;
+    font-size: 11px;
+}
+
 /* QDoubleSpinBox with plus/minus signs */
 QDoubleSpinBox, QSpinBox{
     border: 1px solid #C4C4C4;

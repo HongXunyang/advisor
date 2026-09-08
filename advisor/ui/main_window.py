@@ -79,6 +79,12 @@ class MainWindow(QMainWindow):
         change_structure_action.triggered.connect(self._open_change_structure_dialog)
         toolbar.addAction(change_structure_action)
 
+        library_action = QAction(self)
+        library_action.setText("My structures…")
+        library_action.setToolTip("Open, star, or manage previously saved structures")
+        library_action.triggered.connect(self._open_library_picker)
+        toolbar.addAction(library_action)
+
     def _create_menu(self):
         file_menu = self.menuBar().addMenu("&File")
 
@@ -94,6 +100,10 @@ class MainWindow(QMainWindow):
         change_structure_action.setShortcut("Ctrl+R")
         change_structure_action.triggered.connect(self._open_change_structure_dialog)
         file_menu.addAction(change_structure_action)
+
+        library_action = QAction("My &structures…", self)
+        library_action.triggered.connect(self._open_library_picker)
+        file_menu.addAction(library_action)
 
         save_action = QAction("&Save", self)
         save_action.setShortcut("Ctrl+S")
@@ -163,6 +173,17 @@ class MainWindow(QMainWindow):
         reachable from setup or any feature tab."""
         dialog = ChangeStructureDialog(self.controller, self)
         dialog.exec_()
+
+    def _open_library_picker(self):
+        """"My structures…" -- reachable from setup or any feature tab, the
+        "changing structures from the working view" entry point
+        (REQUIREMENT_2)."""
+        from advisor.ui.dialogs.library_picker_dialog import LibraryPickerDialog
+
+        invoking_widget = self.focusWidget()
+        LibraryPickerDialog(self.controller, self).exec_()
+        if invoking_widget is not None:
+            invoking_widget.setFocus()
 
     def _save_file(self):
         file_path, _ = QFileDialog.getSaveFileName(

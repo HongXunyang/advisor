@@ -23,7 +23,7 @@ one) or resolved via a picker UI (out of scope for this task).
 
 import os
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import Dans_Diffraction.functions_crystallography as fc
 import Dans_Diffraction.functions_general as fg
@@ -47,6 +47,64 @@ _NUMERIC_VALUE_RE = re.compile(r"^[-+]?(\d+\.?\d*|\.\d+)(\(\d+\))?([eE][-+]?\d+)
 
 def _is_numeric_cif_value(value) -> bool:
     return bool(_NUMERIC_VALUE_RE.match(str(value).strip()))
+
+
+# Optional, informational-only descriptive metadata (source id, DOI, ambient
+# temperature/pressure) for the local structure library (REQUIREMENT_2) --
+# extracted from the same `cifvals` dict already parsed for formula/space
+# group below, never used for capability/validity decisions. Absence of any
+# of these is not a failure; they are purely for a library row/details view.
+_SOURCE_ID_KEYS = (
+    "_database_code_amcsd",
+    "_cod_database_code",
+    "_database_code_ICSD",
+    "_database_code_depnum_ccdc_archive",
+)
+_TEMPERATURE_KEYS = ("_diffrn_ambient_temperature", "_cell_measurement_temperature")
+_PRESSURE_KEYS = ("_diffrn_ambient_pressure", "_cell_measurement_pressure")
+
+
+# CIF's two standard "value not given" markers -- a bare '.' (inapplicable)
+# or '?' (unknown). `_atoms_are_usable()` already accounts for these on
+# numeric coordinates; string-valued descriptive fields (formula, space
+# group, source id, DOI) need the same treatment so a null marker is never
+# displayed as if it were real provenance.
+_NULL_MARKERS = {".", "?"}
+
+
+def _is_null_marker(value) -> bool:
+    return isinstance(value, str) and value.strip(" '\"") in _NULL_MARKERS
+
+
+def _clean_optional_str(value) -> Optional[str]:
+    """Strip quotes and treat CIF null markers as absent, for any optional
+    string-valued descriptive field (formula, space group, source id, DOI)."""
+    if isinstance(value, str):
+        value = value.strip(" '\"")
+    if not value or _is_null_marker(value):
+        return None
+    return value
+
+
+def _first_present(cifvals, keys) -> Optional[str]:
+    for key in keys:
+        value = _clean_optional_str(cifvals.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _first_numeric(cifvals, keys) -> Optional[float]:
+    """CIF convention fixes the units for these specific keys (Kelvin for
+    temperature, kPa for pressure), so no separate unit field is stored."""
+    raw = _first_present(cifvals, keys)
+    if raw is None:
+        return None
+    try:
+        value, _ = fg.readstfm(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if _is_numeric_cif_value(raw) else None
 
 
 def _decode(raw_bytes: bytes) -> str:
@@ -200,17 +258,17 @@ def parse_cif_candidate(
             message=f"'{display_name}' has an invalid unit cell: {'; '.join(cell_reasons)}.",
         )
 
-    formula = cifvals.get("_chemical_formula_sum")
-    if isinstance(formula, str):
-        formula = formula.strip(" '\"") or None
-    space_group = cifvals.get("_symmetry_space_group_name_H-M") or cifvals.get(
-        "_space_group_IT_number"
-    )
-    if isinstance(space_group, str):
-        space_group = space_group.strip(" '\"") or None
+    formula = _clean_optional_str(cifvals.get("_chemical_formula_sum"))
+    space_group = _clean_optional_str(cifvals.get("_symmetry_space_group_name_H-M")) or \
+        _clean_optional_str(cifvals.get("_space_group_IT_number"))
 
     atoms_ok, atoms_reason = _atoms_are_usable(cifvals)
     data_block = blocks[0] if blocks else None
+
+    doi = _first_present(cifvals, ("_journal_paper_doi",))
+    source_id = _first_present(cifvals, _SOURCE_ID_KEYS)
+    temperature_k = _first_numeric(cifvals, _TEMPERATURE_KEYS)
+    pressure_kpa = _first_numeric(cifvals, _PRESSURE_KEYS)
 
     if not atoms_ok:
         capabilities = CifCapabilityReport(
@@ -245,5 +303,9 @@ def parse_cif_candidate(
         capabilities=capabilities,
         effective_path=effective_path,
         source_kind="cif",
+        source_id=source_id,
+        doi=doi,
+        temperature_k=temperature_k,
+        pressure_kpa=pressure_kpa,
     )
     return CifImportResult(status=status, message=capabilities.message, source=source)

@@ -19,7 +19,17 @@ If you have diffraction test data (known HKL values with measured angles), you c
 3. Click **Calculate Orientation** to find the optimal Euler angles that fit your data.
 4. Click **Apply and Close** to populate the roll, pitch, yaw fields.
 
-The algorithm uses least-squares optimization with multiple random restarts to find the best orientation that minimizes the difference between calculated and measured HKL values.
+The algorithm uses a deterministic Kabsch/Wahba SVD rotation-alignment solve (not an iterative optimizer) to find the orientation that best matches the calculated and measured HKL values.
+
+**My structures (local structure library):**
+ADVISOR remembers CIFs you've successfully loaded, on this device only, so you can come back to them later without finding the original file again.
+
+- Every CIF you drop/browse and accept is saved automatically (unless you turn this off). A quiet note ("Added to My structures.") confirms it -- this never interrupts you with a pop-up.
+- Click the **Structures ▾** button next to the CIF area (or **File → My structures…**) to open the picker: **Recent**, **Starred**, and **All** are views of the same saved list, with a search box that matches names, formulas, and notes.
+- Selecting a row only previews it; nothing changes until you click **Use structure** (or **Use for geometry**, for a CIF with no usable atomic positions).
+- Star a structure, give it your own name, or add a note -- these never change the underlying CIF data. **Remove from library** deletes only ADVISOR's saved copy; your original file on disk is never touched or modified.
+- No CIF on hand yet? Use **Try an example** from the same menu to load a small, bundled, idealized structure and explore the app immediately, fully offline.
+- Turning off "Remember imported CIFs on this device" (in the picker) only affects future imports -- structures already saved stay available.
 
 .. image:: _static/init.gif
    :alt: Screenshot of the initialization window with callouts.

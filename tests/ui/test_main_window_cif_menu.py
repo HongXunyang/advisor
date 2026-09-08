@@ -35,6 +35,24 @@ class TestOpenCifMenuAction:
         finally:
             _cleanup(controller)
 
+    def test_open_cif_shows_library_note_via_structure_summary(self, qapp, monkeypatch):
+        """REVIEW.md finding #6: File > Open CIF must not be a route where
+        "Added to My structures"/"could not save" is invisible -- it's
+        surfaced centrally by AppController.on_structure_changed(), reached
+        from every accept entry point, not only the setup screen's own
+        drop/Browse handler."""
+        controller = AppController(qt_app=qapp)
+        try:
+            monkeypatch.setattr(
+                QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (NACL_CIF, ""))
+            )
+            controller.main_window._open_cif()
+
+            note = controller.init_window._structure_summary._library_note_label.text()
+            assert note == "Added to My structures."
+        finally:
+            _cleanup(controller)
+
     def test_cancelling_the_dialog_does_nothing(self, qapp, monkeypatch):
         controller = AppController(qt_app=qapp)
         monkeypatch.setattr(
@@ -71,6 +89,52 @@ class TestChangeStructureDialogAction:
 
         assert opened.get("called") is True
 
+    def test_accepting_a_cif_shows_library_note_via_structure_summary(self, qapp):
+        """REVIEW.md finding #6: the Change Structure dialog closes
+        immediately on a successful accept, showing only the scientific
+        `result.message` -- but the setup screen's structure summary (shown
+        again once the dialog closes) must still reflect the library note,
+        via the same centralized `on_structure_changed()` path File>Open
+        uses."""
+        from advisor.ui.dialogs.change_structure_dialog import ChangeStructureDialog
+
+        controller = AppController(qt_app=qapp)
+        try:
+            dialog = ChangeStructureDialog(controller)
+            dialog._drop_target.cifSelected.emit(NACL_CIF)
+
+            note = controller.init_window._structure_summary._library_note_label.text()
+            assert note == "Added to My structures."
+        finally:
+            _cleanup(controller)
+
+
+class TestLibraryPickerAction:
+    def test_opens_the_library_picker_dialog(self, qapp, monkeypatch):
+        from advisor.ui.dialogs.library_picker_dialog import LibraryPickerDialog
+
+        controller = AppController(qt_app=qapp)
+        opened = {}
+
+        def fake_exec(self):
+            opened["called"] = True
+            return 0
+
+        monkeypatch.setattr(LibraryPickerDialog, "exec_", fake_exec)
+        controller.main_window._open_library_picker()
+
+        assert opened.get("called") is True
+
+    def test_toolbar_and_file_menu_both_expose_it(self, qapp):
+        controller = AppController(qt_app=qapp)
+        toolbar = controller.main_window.findChild(QToolBar)
+        toolbar_texts = [a.text() for a in toolbar.actions()]
+        assert "My structures…" in toolbar_texts
+
+        file_menu = controller.main_window.menuBar().actions()[0].menu()
+        menu_texts = [a.text() for a in file_menu.actions() if a.text()]
+        assert any("structures" in t.lower() for t in menu_texts)
+
 
 class TestSingleConsolidatedEntryPoint:
     """Regression tests: 'Change Structure…' and 'Reset Parameters' used to
@@ -85,7 +149,11 @@ class TestSingleConsolidatedEntryPoint:
         toolbar = controller.main_window.findChild(QToolBar)
         texts = [a.text() for a in toolbar.actions()]
 
-        assert texts == ["Change Structure…"]
+        # "My structures…" (REQUIREMENT_2) is a legitimate additional
+        # toolbar action, not a reintroduction of the old separate "Reset"
+        # action this regression test guards against.
+        assert texts == ["Change Structure…", "My structures…"]
+        assert not any("Reset" in t for t in texts)
 
     def test_file_menu_has_no_separate_reset_action(self, qapp):
         controller = AppController(qt_app=qapp)

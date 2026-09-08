@@ -144,6 +144,40 @@ class TestCapabilityGatedInitialize:
         assert tab._capability_block_message() != ""
 
 
+class TestLibraryLoadDrivenReplacementInvalidation:
+    """REQUIREMENT_2: loading a saved library record must go through the
+    exact same accept/invalidate path as any direct CIF import -- the
+    library must never be able to bypass calculator rebinding or leave a
+    stale calculator/open popup behind."""
+
+    def test_library_reload_after_switching_away_rebinds_calculator_and_clears_popup(
+        self, controller, cubic_params
+    ):
+        controller.import_cif(NACL_CIF)
+        nacl_record_id = controller.library.list_recent()[0].id
+        params = {**cubic_params, "cif_file": controller.structure_source.effective_path}
+        controller.apply_parameters(params)
+
+        sf = controller.features[1]
+        sf.calculator.initialize(controller.structure_source.effective_path, 8000.0)
+        sf.open_reflection_popup()
+        popup = sf._reflection_popup
+        assert popup.isVisible() is True
+        calc_before = sf.calculator
+
+        # Switch away via a plain direct import (already-covered
+        # invalidation) before reloading A back through the LIBRARY path.
+        controller.import_cif(CELL_ONLY_CIF)
+        assert popup.isVisible() is False
+
+        result = controller.load_from_library(nacl_record_id)
+
+        assert result.status == "ready"
+        assert sf.calculator is not calc_before
+        assert sf.calculator.is_initialized is False
+        assert sf.view.customized_plane_widget.calculator is sf.calculator
+
+
 class TestClearResetsStatusLabels:
     def test_status_labels_reset_after_invalidate(self, controller, cubic_params):
         controller.import_cif(NACL_CIF)

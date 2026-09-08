@@ -47,6 +47,29 @@ class StructureSource:
     capabilities: CifCapabilityReport
     effective_path: Optional[str]
     source_kind: SourceKind
+    # Optional, informational-only provenance/conditions -- extracted from the
+    # same already-parsed CIF keys `formula`/`space_group` come from (see
+    # cif_adapter.py). Never used for capability/validity decisions; absence
+    # is not a failure. Kept on StructureSource (rather than a library-only
+    # side structure) because they describe the parsed CIF itself, so an
+    # unsaved import's CifDetailsDialog can show them too, not only a saved
+    # library record's.
+    source_id: Optional[str] = None
+    doi: Optional[str] = None
+    temperature_k: Optional[float] = None
+    pressure_kpa: Optional[float] = None
+    # Presentation-only provenance for the *current session* (REVIEW.md
+    # finding #3): "import" for an ordinary user-selected file, or
+    # "bundled_example" when this source was loaded via AppController.
+    # load_bundled_example(). `citation` carries the bundled example's
+    # attribution text so it's visible in CifDetailsDialog for the live
+    # session even when remembering is disabled (and there is therefore no
+    # library record to fall back on for this information). Neither field
+    # is derived by cif_adapter.py from CIF content -- both are set by
+    # AppController after the same validated parse, never by a second
+    # parser, and never affect identity/capability.
+    origin: str = "import"
+    citation: Optional[str] = None
 
     def identity_key(self) -> Tuple[Optional[str], Optional[str]]:
         """(content_digest, data_block) -- used to detect a no-op reselection.
@@ -72,6 +95,11 @@ class CifImportResult:
     message: str
     source: Optional[StructureSource] = None
     error: Optional[str] = None
+    # Populated only by AppController (the accept side of the pipeline), never
+    # by CifImportService/cif_adapter (the prepare side) -- a side note about
+    # whether this accepted structure could also be saved to the local
+    # library, kept separate from `message` (the scientific readiness verdict).
+    library_note: Optional[str] = None
 
     @property
     def ok(self) -> bool:

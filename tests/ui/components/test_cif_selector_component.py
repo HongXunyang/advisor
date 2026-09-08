@@ -188,3 +188,76 @@ class TestCifStructureSummary:
         assert summary._manual_button.isHidden() is True
         assert summary._remove_button.isHidden() is True
         assert summary._details_button.isHidden() is False
+
+
+class TestStructuresButtonAndLibraryNote:
+    """REQUIREMENT_2: a single combined `Structures ▾` menu button (not two
+    separate buttons), always visible in both empty and populated states,
+    plus a quiet library-persistence note distinct from the scientific
+    status line."""
+
+    def test_structures_button_always_visible_empty_and_populated(self, qapp):
+        summary = CifStructureSummary()
+        summary.set_empty()
+        assert summary._structures_button.isHidden() is False
+
+        source = StructureSource(
+            content_digest="abc", data_block="x", display_name="nacl.cif", display_path=NACL_CIF,
+            formula="Cl Na", space_group="P m -3 m", a=2.86, b=2.86, c=2.86, alpha=90.0, beta=90.0, gamma=90.0,
+            capabilities=CifCapabilityReport(geometry_ok=True, structure_factor_ok=True, message="Ready."),
+            effective_path=NACL_CIF, source_kind="cif",
+        )
+        summary.set_source(source)
+        assert summary._structures_button.isHidden() is False
+
+    def test_structures_button_menu_has_library_and_example_actions(self, qapp):
+        summary = CifStructureSummary()
+        menu = summary._structures_button.menu()
+        texts = [action.text() for action in menu.actions()]
+        assert texts == ["My structures…", "Try an example"]
+
+    def test_menu_actions_emit_dedicated_signals(self, qapp):
+        summary = CifStructureSummary()
+        library_calls = []
+        example_calls = []
+        summary.libraryPickerRequested.connect(lambda: library_calls.append(1))
+        summary.tryExampleRequested.connect(lambda: example_calls.append(1))
+
+        menu = summary._structures_button.menu()
+        menu.actions()[0].trigger()
+        menu.actions()[1].trigger()
+
+        assert library_calls == [1]
+        assert example_calls == [1]
+
+    def test_compact_buttons_share_object_name(self, qapp):
+        summary = CifStructureSummary()
+        for button in (
+            summary._structures_button, summary._details_button,
+            summary._manual_button, summary._remove_button,
+        ):
+            assert button.objectName() == "cifCompactAction"
+
+    def test_library_note_shown_then_cleared_on_empty(self, qapp):
+        summary = CifStructureSummary()
+        summary.set_empty()
+        assert summary._library_note_label.isHidden() is True
+
+        summary.set_library_note("Added to My structures.")
+        assert summary._library_note_label.isHidden() is False
+        assert summary._library_note_label.text() == "Added to My structures."
+
+        summary.set_empty()
+        assert summary._library_note_label.isHidden() is True
+
+    def test_setting_a_new_source_clears_previous_library_note(self, qapp):
+        summary = CifStructureSummary()
+        summary.set_library_note("Added to My structures.")
+        source = StructureSource(
+            content_digest="abc", data_block="x", display_name="nacl.cif", display_path=NACL_CIF,
+            formula="Cl Na", space_group="P m -3 m", a=2.86, b=2.86, c=2.86, alpha=90.0, beta=90.0, gamma=90.0,
+            capabilities=CifCapabilityReport(geometry_ok=True, structure_factor_ok=True, message="Ready."),
+            effective_path=NACL_CIF, source_kind="cif",
+        )
+        summary.set_source(source)
+        assert summary._library_note_label.isHidden() is True
