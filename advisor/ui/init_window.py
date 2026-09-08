@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pylint: disable=no-name-in-module, import-error
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
-from PyQt5.QtWidgets import (QDoubleSpinBox, QFormLayout, QGridLayout,
-                             QGroupBox, QLabel, QMessageBox, QPushButton,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtWidgets import (QDoubleSpinBox, QFormLayout, QFrame, QGridLayout,
+                             QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton,
+                             QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 
 from advisor.domain import UnitConverter
 from advisor.domain.orientation_types import OrientationFitSession
@@ -48,12 +48,26 @@ class InitWindow(QWidget):
 
     def init_ui(self):
         """Initialize UI components."""
+        self.setObjectName("setupWindow")
+        self.setWindowTitle("Advisor — Initialize experiment")
         layout = QGridLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(40)
+        layout.setSpacing(18)
+        layout.setColumnStretch(0, 5)
+        layout.setColumnStretch(1, 3)
+        layout.setColumnStretch(2, 3)
+
+        self.crystal_group = QGroupBox("1  Crystal")
+        self.crystal_group.setObjectName("setupCrystal")
+        crystal_layout = QVBoxLayout(self.crystal_group)
+        crystal_layout.setContentsMargins(16, 24, 16, 16)
+        crystal_layout.setSpacing(16)
+        layout.addWidget(self.crystal_group, 0, 0, 2, 1)
 
         # Group box for lattice parameters
-        lattice_group = QGroupBox("Lattice Parameters")
+        lattice_group = QWidget()
+        self._lattice_heading = QLabel("Lattice parameters")
+        self._lattice_heading.setProperty("designRole", "sectionTitle")
         lattice_layout = QGridLayout(lattice_group)
 
         # Lattice constants (left column). HighPrecisionSpinBox (not a plain
@@ -125,16 +139,17 @@ class InitWindow(QWidget):
         # Add spacing between columns and margins
         lattice_layout.setColumnStretch(1, 1)
         lattice_layout.setColumnStretch(3, 1)
-        lattice_layout.setHorizontalSpacing(40)
+        lattice_layout.setHorizontalSpacing(10)
         lattice_layout.setVerticalSpacing(10)
-        lattice_layout.setContentsMargins(20, 20, 20, 20)
-
-        # Add lattice group to main layout at (0,0)
-        layout.addWidget(lattice_group, 0, 0)
+        lattice_layout.setContentsMargins(0, 0, 0, 0)
 
         # Group box for X-ray energy
-        energy_group = QGroupBox("X-ray Energy")
+        energy_group = QGroupBox("2  X-ray energy")
+        energy_group.setProperty("designRole", "setupPanel")
         energy_layout = QFormLayout(energy_group)
+        energy_layout.setContentsMargins(16, 24, 16, 16)
+        energy_layout.setSpacing(12)
+        energy_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
 
         self.energy_input = QDoubleSpinBox()
         self.energy_input.setRange(0, 1000000)
@@ -165,8 +180,12 @@ class InitWindow(QWidget):
         layout.addWidget(energy_group, 0, 1)
 
         # Group box for Sample orientation Euler angles
-        euler_group = QGroupBox("Sample Orientation (Euler Angles)")
+        euler_group = QGroupBox("3  Sample orientation")
+        euler_group.setProperty("designRole", "setupPanel")
         euler_layout = QFormLayout(euler_group)
+        euler_layout.setContentsMargins(16, 24, 16, 16)
+        euler_layout.setSpacing(12)
+        euler_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
 
         self.roll_input = HighPrecisionSpinBox(display_decimals=2)
         self.roll_input.setObjectName("eulerAngleSpinBox")
@@ -229,46 +248,103 @@ class InitWindow(QWidget):
             }
         )
         self.visualizer.visualize_lab_system()
-        layout.addWidget(self.visualizer, 1, 1)
+        geometry_group = QGroupBox("Geometry preview")
+        geometry_group.setProperty("designRole", "previewPanel")
+        geometry_layout = QVBoxLayout(geometry_group)
+        geometry_layout.setContentsMargins(4, 20, 4, 4)
+        geometry_layout.addWidget(self.visualizer)
+        self.visualizer.setMinimumSize(0, 180)
+        self.visualizer.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+        layout.addWidget(geometry_group, 1, 1)
 
         # Create and add the unit cell visualizer
         self.unitcell_visualizer = UnitcellVisualizer()
-        layout.addWidget(self.unitcell_visualizer, 1, 2)
+        atomic_group = QGroupBox("Atomic structure")
+        atomic_group.setProperty("designRole", "previewPanel")
+        atomic_layout = QVBoxLayout(atomic_group)
+        atomic_layout.setContentsMargins(4, 20, 4, 4)
+        self._atomic_preview_stack = QStackedWidget()
+        self._atomic_empty_label = QLabel(
+            "No atomic structure loaded\n\nImport a CIF with atomic positions\nto see the unit cell."
+        )
+        self._atomic_empty_label.setAlignment(Qt.AlignCenter)
+        self._atomic_empty_label.setWordWrap(True)
+        self._atomic_empty_label.setProperty("designRole", "secondaryText")
+        self._atomic_preview_stack.addWidget(self._atomic_empty_label)
+        self._atomic_preview_stack.addWidget(self.unitcell_visualizer)
+        self.unitcell_visualizer.setMinimumSize(0, 180)
+        self.unitcell_visualizer.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+        self._atomic_preview_stack.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+        atomic_layout.addWidget(self._atomic_preview_stack)
+        layout.addWidget(atomic_group, 1, 2)
 
-        # File input area: one shared CifDropTarget (drag-drop + Browse, both
-        # funnel into a single cifSelected signal -- see cif_selector.py)
-        # stacked above a compact CifStructureSummary. Same footprint as the
-        # old line-edit+Browse row; the extra summary row fits in the
-        # headroom this cell already has from the taller visualizers beside
-        # it, so the window doesn't grow.
-        file_group = QGroupBox("Crystal Structure File")
+        # Reuse the shared selection signals; this is only a setup-specific
+        # presentation of the same import and accepted-structure controls.
+        file_group = QFrame()
+        file_group.setObjectName("setupSource")
         file_layout = QVBoxLayout(file_group)
+        file_layout.setContentsMargins(12, 12, 12, 12)
+        file_layout.setSpacing(12)
 
-        self._cif_drop_target = CifDropTarget()
+        self._cif_drop_target = CifDropTarget(compact=True)
         self._cif_drop_target.cifSelected.connect(self._on_cif_selected)
         self._cif_drop_target.selectionRejected.connect(self._on_cif_selection_rejected)
         file_layout.addWidget(self._cif_drop_target)
+        self._library_button = QPushButton("My Structures…")
+        self._library_button.clicked.connect(self._on_library_picker_requested)
+        self._cif_drop_target.actions_layout.addWidget(self._library_button)
+        self._example_button = QPushButton("Try an example")
+        self._example_button.setProperty("designRole", "textAction")
+        self._example_button.clicked.connect(self._on_try_example_requested)
+        file_layout.addWidget(self._example_button, alignment=Qt.AlignLeft)
+        crystal_layout.addWidget(file_group)
 
-        self._structure_summary = CifStructureSummary()
+        self._structure_summary = CifStructureSummary(setup=True)
         self._structure_summary.set_empty()
         self._structure_summary.detailsRequested.connect(self._on_details_requested)
         self._structure_summary.useManualLatticeRequested.connect(self._on_use_manual_lattice_clicked)
         self._structure_summary.removeStructureRequested.connect(self._on_remove_cif_clicked)
         self._structure_summary.libraryPickerRequested.connect(self._on_library_picker_requested)
         self._structure_summary.tryExampleRequested.connect(self._on_try_example_requested)
-        file_layout.addWidget(self._structure_summary)
+        crystal_layout.addWidget(self._structure_summary)
+        crystal_layout.addWidget(self._lattice_heading)
+        crystal_layout.addWidget(lattice_group)
+        crystal_layout.addStretch(1)
 
-        # Add file group to main layout at (1,0) spanning 1 column
-        layout.addWidget(file_group, 1, 0, 1, 1)
+        footer = QFrame()
+        footer.setObjectName("setupFooter")
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(0, 14, 0, 0)
+        footer_hint = QLabel("Review crystal, energy and orientation.")
+        footer_hint.setProperty("designRole", "secondaryText")
+        footer_layout.addWidget(footer_hint, 1)
+        self.initialize_button = QPushButton("Initialize")
+        self.initialize_button.setProperty("designRole", "primaryAction")
+        self.initialize_button.setMinimumWidth(150)
+        self.initialize_button.clicked.connect(self.initialize)
+        footer_layout.addWidget(self.initialize_button)
+        layout.addWidget(footer, 2, 0, 1, 3)
+        layout.setRowStretch(1, 1)
 
-        # Initialize button
-        initialize_button = QPushButton("Initialize")
-        initialize_button.clicked.connect(self.initialize)
-        # Add initialize button at (2,0) spanning 1 column
-        layout.addWidget(initialize_button, 2, 0, 1, 1)
-
-        # Add spacer
-        layout.setRowStretch(3, 1)
+        # Mark only this view's existing controls, so styles cannot leak into
+        # child CIF/UB dialogs or the scientific workspace.
+        for field in self.findChildren(QDoubleSpinBox):
+            field.setProperty("designRole", "setupField")
+        for label in self.findChildren(QLabel):
+            if label.property("designRole") is None:
+                label.setProperty("designRole", "bodyText")
+        for button in self.findChildren(QPushButton):
+            if button.property("designRole") is None:
+                button.setProperty("designRole", "secondaryAction")
+        order = [self._cif_drop_target.browse_button, self._library_button,
+                 self._example_button, self.a_input, self.b_input, self.c_input,
+                 self.alpha_input, self.beta_input, self.gamma_input,
+                 self.energy_input, self.wavelength_input, self.wavevector_input,
+                 self.roll_input, self.pitch_input, self.yaw_input,
+                 self.import_orientation_btn, self.initialize_button]
+        for first, second in zip(order, order[1:]):
+            self.setTabOrder(first, second)
+        self.resize(1100, 700)
 
     def _invalidate_ub_session(self, *_args):
         """Clear the stored UB-matrix diffraction measurements and any
@@ -343,6 +419,9 @@ class InitWindow(QWidget):
 
     def set_lattice_inputs_enabled(self, enabled: bool):
         """Enable/disable lattice parameter inputs (a,b,c,alpha,beta,gamma)."""
+        self._lattice_heading.setText(
+            "Lattice parameters" if enabled else "Lattice parameters · from CIF"
+        )
         self.a_input.setEnabled(enabled)
         self.b_input.setEnabled(enabled)
         self.c_input.setEnabled(enabled)
@@ -447,6 +526,10 @@ class InitWindow(QWidget):
             self._structure_summary.set_empty()
             self.set_lattice_inputs_enabled(True)
             self.unitcell_visualizer.reset()
+            self._atomic_preview_stack.setCurrentIndex(0)
+            self._atomic_empty_label.setText(
+                "No atomic structure loaded\n\nImport a CIF with atomic positions\nto see the unit cell."
+            )
         else:
             self._set_lattice_display(source.a, source.b, source.c, source.alpha, source.beta, source.gamma)
             self.set_lattice_inputs_enabled(source.source_kind != "cif")
@@ -459,9 +542,14 @@ class InitWindow(QWidget):
             # real atom from the file. Show the cell-only state (reset) in
             # that case instead of a fictitious structure.
             if source.source_kind == "cif" and source.capabilities.structure_factor_ok:
+                self._atomic_preview_stack.setCurrentIndex(1)
                 self.update_unitcell_visualization(source.effective_path)
             else:
                 self.unitcell_visualizer.reset()
+                self._atomic_preview_stack.setCurrentIndex(0)
+                self._atomic_empty_label.setText(
+                    "No atomic positions available\n\nGeometry calculations are available."
+                )
 
         self._on_structure_replaced()
         self.update_visualization()
@@ -502,6 +590,21 @@ class InitWindow(QWidget):
         """
         self.unitcell_visualizer.set_parameters({"cif_file": cif_file_path})
         self.unitcell_visualizer.visualize_unitcell()
+        if self.unitcell_visualizer.render_error_message is None:
+            # Fit the existing plot into setup's compact preview. Only the
+            # camera scale, label sizes and legend placement change here.
+            axes = self.unitcell_visualizer.axes
+            figure = self.unitcell_visualizer.fig
+            figure.subplots_adjust(left=0.04, right=0.96, bottom=0.18, top=0.94)
+            axes.set_box_aspect(axes.get_box_aspect(), zoom=0.72)
+            for label in axes.texts:
+                label.set_fontsize(9)
+            handles, labels = axes.get_legend_handles_labels()
+            if handles:
+                axes.legend(handles, labels, loc="lower center",
+                            bbox_to_anchor=(0.5, 0.01), bbox_transform=figure.transFigure,
+                            ncol=min(3, len(handles)), fontsize=8, frameon=False)
+            self.unitcell_visualizer.draw_idle()
 
     @pyqtSlot()
     def update_visualization(self):

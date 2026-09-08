@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QStatusBar,
+    QSizePolicy,
     QStackedWidget,
     QTabWidget,
     QToolBar,
@@ -54,6 +55,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stacked_widget, 0, 0)
 
         self.tab_widget = QTabWidget()
+        # The hidden scientific workspace must not dictate setup's minimum
+        # window size. Restore its normal sizing when that page is shown.
+        self.tab_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.tab_widget.setTabPosition(QTabWidget.West)
         self.tab_widget.setIconSize(QSize(105, 80))
         self.tab_widget.setMovable(True)
@@ -144,12 +148,17 @@ class MainWindow(QMainWindow):
 
     def show_tabs(self):
         """Switch to the main tab view."""
+        self.tab_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        if self.init_view:
+            self.init_view.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.stacked_widget.setCurrentWidget(self.tab_widget)
         self.statusBar().showMessage("Ready")
 
     def show_init(self):
         """Switch back to initialization view."""
         if self.init_view:
+            self.tab_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            self.init_view.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
             self.stacked_widget.setCurrentWidget(self.init_view)
             self.statusBar().showMessage("Please initialize lattice parameters")
 

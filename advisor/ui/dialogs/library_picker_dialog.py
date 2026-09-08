@@ -8,11 +8,12 @@ as any other CIF selection. Cancelling or changing filters/search leaves the
 current session untouched.
 """
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import (
     QCheckBox,
     QDialog,
     QGroupBox,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -20,13 +21,39 @@ from PyQt5.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from advisor.domain.library.bundled_examples import find_example_by_content_hash
 from advisor.domain.library.types import LibraryError
 from advisor.ui.components.library_row_widget import LibraryRowWidget
 from advisor.ui.dialogs.library_record_details_dialog import LibraryRecordDetailsDialog
+
+
+class _SummaryLabel(QLabel):
+    """One quiet metadata line; full information stays in its tooltip/Details."""
+
+    def setText(self, text):
+        self._full_text = text
+        self.setToolTip(text)
+        self._elide()
+
+    def _elide(self):
+        super().setText(self.fontMetrics().elidedText(
+            getattr(self, "_full_text", ""), Qt.ElideRight, max(self.width(), 100)
+        ))
+
+    def sizeHint(self):
+        return QSize(100, self.fontMetrics().height() + 4)
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._elide()
 
 
 class LibraryPickerDialog(QDialog):
@@ -39,9 +66,13 @@ class LibraryPickerDialog(QDialog):
         self._selected_record_id = None
 
         self.setWindowTitle("My Structures")
+        self.setObjectName("structureLibrary")
         self.setMinimumSize(560, 460)
+        self.resize(680, 600)
 
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(10)
 
         unavailable_row = QHBoxLayout()
         self._unavailable_banner = QLabel("")
@@ -57,20 +88,31 @@ class LibraryPickerDialog(QDialog):
         outer.addLayout(unavailable_row)
 
         filter_row = QHBoxLayout()
+        segments = QHBoxLayout()
+        segments.setSpacing(0)
         self._recent_btn = self._make_filter_button("Recent", "recent")
         self._starred_btn = self._make_filter_button("Starred", "starred")
         self._all_btn = self._make_filter_button("All", "all")
-        for btn in (self._recent_btn, self._starred_btn, self._all_btn):
-            filter_row.addWidget(btn)
+        for btn, position in ((self._recent_btn, "first"),
+                              (self._starred_btn, "middle"),
+                              (self._all_btn, "last")):
+            btn.setProperty("segmentPosition", position)
+            segments.addWidget(btn)
+        filter_row.addLayout(segments)
         self._recent_btn.setChecked(True)
         filter_row.addStretch(1)
         self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Search…")
+        self._search_edit.setPlaceholderText("Search structures…")
+        self._search_edit.setAccessibleName("Search structures")
+        self._search_edit.setMaximumWidth(240)
+        self._search_edit.setMinimumWidth(175)
         self._search_edit.textChanged.connect(lambda _text: self._reload())
         filter_row.addWidget(self._search_edit)
         outer.addLayout(filter_row)
 
         self._list_widget = QListWidget()
+        self._list_widget.setObjectName("structureLibraryList")
+        self._list_widget.setMinimumHeight(60)
         # Vertical scrolling inside the library list is acceptable
         # (REQUIREMENT_2.md); horizontal scrolling of a primary control is
         # not, regardless of how long a row's content gets -- hard guarantee
@@ -84,7 +126,8 @@ class LibraryPickerDialog(QDialog):
         self._empty_label.setWordWrap(True)
         self._empty_label.setAlignment(Qt.AlignCenter)
         self._empty_label.setVisible(False)
-        outer.addWidget(self._empty_label)
+        self._empty_label.setProperty("designRole", "emptyState")
+        outer.addWidget(self._empty_label, 1)
 
         self._clear_search_btn = QPushButton("Clear search")
         self._clear_search_btn.setObjectName("cifCompactAction")
@@ -92,34 +135,52 @@ class LibraryPickerDialog(QDialog):
         self._clear_search_btn.clicked.connect(self._search_edit.clear)
         outer.addWidget(self._clear_search_btn, alignment=Qt.AlignHCenter)
 
-        detail_group = QGroupBox("Details")
-        detail_layout = QVBoxLayout(detail_group)
+        detail_group = QGroupBox("Selected structure")
+        detail_group.setProperty("designRole", "libraryPanel")
+        detail_outer = QVBoxLayout(detail_group)
+        detail_outer.setContentsMargins(12, 20, 12, 12)
+        self._detail_stack = QStackedWidget()
+        placeholder = QLabel("Select a structure above to see its details.")
+        placeholder.setWordWrap(True)
+        placeholder.setAlignment(Qt.AlignCenter)
+        placeholder.setProperty("designRole", "secondaryText")
+        self._detail_stack.addWidget(placeholder)
+        detail_content = QWidget()
+        detail_layout = QVBoxLayout(detail_content)
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        detail_layout.setSpacing(8)
+        self._detail_stack.addWidget(detail_content)
+        detail_outer.addWidget(self._detail_stack)
 
-        self._detail_label = QLabel("Select a structure to see details.")
-        self._detail_label.setWordWrap(True)
+        self._detail_label = _SummaryLabel()
+        self._detail_label.setText("Select a structure to see details.")
+        self._detail_label.setTextFormat(Qt.PlainText)
+        self._detail_label.setProperty("designRole", "secondaryText")
         detail_layout.addWidget(self._detail_label)
 
-        edit_row = QHBoxLayout()
+        edit_grid = QGridLayout()
+        edit_grid.setHorizontalSpacing(12)
+        edit_grid.setVerticalSpacing(4)
         self._star_checkbox = QCheckBox("Starred")
         self._star_checkbox.setEnabled(False)
         self._star_checkbox.toggled.connect(self._on_star_toggled)
-        edit_row.addWidget(self._star_checkbox)
-        edit_row.addWidget(QLabel("Name:"))
+        edit_grid.addWidget(QLabel("Name"), 0, 0)
         self._name_edit = QLineEdit()
         self._name_edit.setEnabled(False)
         self._name_edit.editingFinished.connect(self._on_name_edited)
-        edit_row.addWidget(self._name_edit)
-        detail_layout.addLayout(edit_row)
+        edit_grid.addWidget(self._name_edit, 1, 0)
 
-        note_row = QHBoxLayout()
-        note_row.addWidget(QLabel("Note:"))
+        edit_grid.addWidget(QLabel("Note"), 0, 1)
         self._note_edit = QLineEdit()
         self._note_edit.setEnabled(False)
         self._note_edit.editingFinished.connect(self._on_note_edited)
-        note_row.addWidget(self._note_edit)
-        detail_layout.addLayout(note_row)
+        edit_grid.addWidget(self._note_edit, 1, 1)
+        edit_grid.setColumnStretch(0, 1)
+        edit_grid.setColumnStretch(1, 1)
+        detail_layout.addLayout(edit_grid)
 
         detail_buttons = QHBoxLayout()
+        detail_buttons.addWidget(self._star_checkbox)
         self._details_button = QPushButton("Details…")
         self._details_button.setObjectName("cifCompactAction")
         self._details_button.setEnabled(False)
@@ -128,6 +189,7 @@ class LibraryPickerDialog(QDialog):
         detail_buttons.addStretch(1)
         self._remove_button = QPushButton("Remove from library")
         self._remove_button.setObjectName("cifCompactAction")
+        self._remove_button.setProperty("designRole", "textAction")
         self._remove_button.setEnabled(False)
         self._remove_button.clicked.connect(self._on_remove_clicked)
         detail_buttons.addWidget(self._remove_button)
@@ -136,10 +198,12 @@ class LibraryPickerDialog(QDialog):
         outer.addWidget(detail_group)
 
         self._remember_checkbox = QCheckBox("Remember imported CIFs on this device")
+        self._remember_checkbox.setProperty("designRole", "quietCheck")
         self._remember_checkbox.toggled.connect(self._on_remember_toggled)
         outer.addWidget(self._remember_checkbox)
         remember_help = QLabel("Off only affects future imports — saved structures stay available.")
-        remember_help.setStyleSheet("color: #757575; font-size: 11px;")
+        remember_help.setProperty("designRole", "secondaryText")
+        remember_help.setWordWrap(True)
         outer.addWidget(remember_help)
 
         bottom = QHBoxLayout()
@@ -148,10 +212,23 @@ class LibraryPickerDialog(QDialog):
         cancel_button.clicked.connect(self.reject)
         bottom.addWidget(cancel_button)
         self._use_button = QPushButton("Use structure")
+        self._use_button.setProperty("designRole", "primaryAction")
+        self._use_button.setMinimumWidth(140)
+        self._use_button.setDefault(True)
         self._use_button.setEnabled(False)
         self._use_button.clicked.connect(self._on_use_clicked)
         bottom.addWidget(self._use_button)
         outer.addLayout(bottom)
+
+        for field in self.findChildren(QLineEdit):
+            field.setProperty("designRole", "setupField")
+        for label in self.findChildren(QLabel):
+            if label.property("designRole") is None:
+                label.setProperty("designRole", "bodyText")
+        for button in self.findChildren(QPushButton):
+            if button.property("designRole") is None:
+                button.setProperty("designRole", "secondaryAction")
+        self._star_checkbox.setProperty("designRole", "quietCheck")
 
         self._reload()  # also refreshes the remember checkbox once available (or disables it)
 
@@ -159,7 +236,7 @@ class LibraryPickerDialog(QDialog):
 
     def _make_filter_button(self, label, key):
         button = QPushButton(label)
-        button.setObjectName("cifCompactAction")
+        button.setProperty("designRole", "filterSegment")
         button.setCheckable(True)
         button.clicked.connect(lambda: self._set_filter(key))
         return button
@@ -243,6 +320,11 @@ class LibraryPickerDialog(QDialog):
             if query:
                 self._empty_label.setText(f"No matches for “{query}”.")
                 self._clear_search_btn.setVisible(True)
+            elif self._current_filter == "starred":
+                self._empty_label.setText(
+                    "No starred structures yet.\nSelect a structure in Recent or All to star it."
+                )
+                self._clear_search_btn.setVisible(False)
             else:
                 self._empty_label.setText(
                     "No saved structures yet.\nUse Browse to import a CIF, or Try an example."
@@ -263,7 +345,12 @@ class LibraryPickerDialog(QDialog):
 
     # -- selection / detail panel -----------------------------------------
 
-    def _on_selection_changed(self, current, _previous):
+    def _on_selection_changed(self, current, previous):
+        for item, selected in ((previous, False), (current, True)):
+            if item is not None:
+                row = self._list_widget.itemWidget(item)
+                if row is not None:
+                    row.set_selected(selected)
         record_id = current.data(Qt.UserRole) if current is not None else None
         self._update_detail_panel(record_id)
 
@@ -273,12 +360,14 @@ class LibraryPickerDialog(QDialog):
     def _update_detail_panel(self, record_id):
         self._selected_record_id = record_id
         record = self._find_record(record_id) if record_id else None
+        self._detail_stack.setCurrentIndex(1 if record is not None else 0)
 
         for widget in (self._star_checkbox, self._name_edit, self._note_edit,
                        self._details_button, self._remove_button, self._use_button):
             widget.setEnabled(record is not None)
 
         if record is None:
+            self._use_button.setText("Use structure")
             self._detail_label.setText("Select a structure to see details.")
             self._name_edit.clear()
             self._note_edit.clear()
@@ -290,14 +379,9 @@ class LibraryPickerDialog(QDialog):
         ]
         if all(v is not None for v in (record.cell_a, record.cell_b, record.cell_c)):
             lines.append(f"a={record.cell_a:.6g}  b={record.cell_b:.6g}  c={record.cell_c:.6g} Å")
-        source_bits = []
-        if record.source_id:
-            source_bits.append(f"Source: {record.source_id}")
-        if record.doi:
-            source_bits.append(f"DOI: {record.doi}")
-        if source_bits:
-            lines.append("   ".join(source_bits))
-        self._detail_label.setText("\n".join(lines))
+        # Extended provenance remains available in Details; keeping this
+        # summary short prevents long DOIs from resizing the picker.
+        self._detail_label.setText(" · ".join(lines))
 
         self._star_checkbox.blockSignals(True)
         self._star_checkbox.setChecked(record.starred)
@@ -306,6 +390,7 @@ class LibraryPickerDialog(QDialog):
         self._name_edit.blockSignals(True)
         self._name_edit.setText(record.display_name or "")
         self._name_edit.setPlaceholderText(record.original_filename)
+        self._name_edit.setCursorPosition(0)
         self._name_edit.blockSignals(False)
 
         self._note_edit.blockSignals(True)

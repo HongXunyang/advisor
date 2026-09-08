@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QMenu,
     QPushButton,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -47,26 +48,42 @@ class CifDropTarget(QWidget):
     wrong extension) -- deeper CIF-content validation happens downstream and
     is reported back to whoever calls `AppController.import_cif()`, not by
     this widget.
+
+    ``compact=True`` presents the drop hint above an action row for setup;
+    other consumers retain the original path-field layout.
     """
 
     cifSelected = pyqtSignal(str)
     selectionRejected = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, compact=False):
         super().__init__(parent)
         self.setAcceptDrops(True)
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self) if compact else QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self._display = QLineEdit()
         self._display.setReadOnly(True)
         self._display.setPlaceholderText("Drag and drop a .cif file here, or Browse…")
-        layout.addWidget(self._display)
+        if compact:
+            self._display.setParent(self)
+            self._display.hide()
+            hint = QLabel("Drop a .cif file here, or choose a source.")
+            hint.setWordWrap(True)
+            hint.setProperty("designRole", "secondaryText")
+            layout.addWidget(hint)
+            self.actions_layout = QHBoxLayout()
+            self.actions_layout.setSpacing(8)
+            layout.addLayout(self.actions_layout)
+        else:
+            layout.addWidget(self._display)
+            self.actions_layout = layout
 
-        browse_button = QPushButton("Browse…")
+        browse_button = QPushButton("Browse CIF…" if compact else "Browse…")
+        self.browse_button = browse_button
         browse_button.clicked.connect(self._on_browse_clicked)
-        layout.addWidget(browse_button)
+        self.actions_layout.addWidget(browse_button)
 
     def dragEnterEvent(self, event):
         mime = event.mimeData()
@@ -130,9 +147,8 @@ class CifStructureSummary(QWidget):
     see the on-demand `CifDetailsDialog` for that.
 
     Also hosts the compact `Structures ▾` menu button (My structures…/Try an
-    example) -- always visible, empty state or populated -- one small
-    `QToolButton` rather than two separate buttons, to minimize how much
-    this already-tight area grows (REQUIREMENT_2).
+    example). Setup uses its own source actions above the summary and passes
+    ``setup=True`` to hide this duplicate menu and use manual-lattice copy.
     """
 
     detailsRequested = pyqtSignal()
@@ -141,14 +157,17 @@ class CifStructureSummary(QWidget):
     libraryPickerRequested = pyqtSignal()
     tryExampleRequested = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, setup=False):
         super().__init__(parent)
+        self._setup = setup
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 4, 0, 0)
         outer.setSpacing(2)
 
         self._name_label = QLabel("No structure loaded")
+        self._name_label.setTextFormat(Qt.PlainText)
+        self._name_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         self._name_label.setStyleSheet("font-weight: bold;")
         outer.addWidget(self._name_label)
 
@@ -174,6 +193,7 @@ class CifStructureSummary(QWidget):
         structures_menu.addAction("My structures…", self.libraryPickerRequested.emit)
         structures_menu.addAction("Try an example", self.tryExampleRequested.emit)
         self._structures_button.setMenu(structures_menu)
+        self._structures_button.setVisible(not setup)
         structures_row.addWidget(self._structures_button)
         outer.addLayout(structures_row)
 
@@ -210,9 +230,12 @@ class CifStructureSummary(QWidget):
     def set_empty(self):
         """No structure accepted -- initial state, or after Remove CIF."""
         self._source = None
-        self._name_label.setText("No structure loaded")
+        self._name_label.setText("Manual lattice" if self._setup else "No structure loaded")
         self._full_name_text = ""
-        self._set_status("Provide a CIF or enter lattice parameters manually.", "empty")
+        self._set_status(
+            "Geometry calculations · No atomic structure." if self._setup
+            else "Provide a CIF or enter lattice parameters manually.", "empty"
+        )
         self._details_button.setVisible(False)
         self._manual_button.setVisible(False)
         self._remove_button.setVisible(False)

@@ -48,27 +48,38 @@ class LibraryRowWidget(QWidget):
 
     def __init__(self, record, parent=None):
         super().__init__(parent)
+        self.setObjectName("libraryRow")
+        self.setProperty("selected", False)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        # Let the list own mouse selection and keyboard focus.
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(6, 4, 6, 4)
-        outer.setSpacing(1)
+        outer.setContentsMargins(14, 10, 14, 10)
+        outer.setSpacing(4)
 
         top = QHBoxLayout()
         top.setSpacing(6)
         star = "★" if record.starred else "☆"
         name_label = QLabel()
-        name_label.setStyleSheet("font-weight: bold;")
+        name_label.setTextFormat(Qt.PlainText)
+        name_label.setProperty("designRole", "libraryName")
         _elided(name_label, f"{star} {record.effective_display_name()}", _MAX_NAME_WIDTH_PX)
         top.addWidget(name_label)
-        if record.formula:
-            formula_label = QLabel()
-            formula_label.setStyleSheet("color: #757575;")
-            _elided(formula_label, record.formula, _MAX_FORMULA_WIDTH_PX)
-            top.addWidget(formula_label)
         top.addStretch(1)
         outer.addLayout(top)
 
         condition_text = _condition_text(record)
+        if record.formula:
+            condition_text = f"{record.formula} · {condition_text}"
         condition_label = QLabel()
-        condition_label.setStyleSheet("color: #757575; font-size: 11px;")
+        condition_label.setTextFormat(Qt.PlainText)
+        condition_label.setProperty("designRole", "libraryMetadata")
         _elided(condition_label, condition_text, _MAX_NAME_WIDTH_PX + _MAX_FORMULA_WIDTH_PX)
         outer.addWidget(condition_label)
+
+    def set_selected(self, selected):
+        """Keep custom row backgrounds in sync with the list selection."""
+        self.setProperty("selected", selected)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
