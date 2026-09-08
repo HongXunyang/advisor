@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QGridLayout, QMessageBox, QTabWidget, QWidget
 from advisor.features.structure_factor.domain import (StructureFactorCalculator,
                                                        generate_hkl_range)
 from advisor.ui.tab_interface import TabInterface
+from advisor.ui.components.workspace_presentation import control_rail, plot_tabs, polish_workspace
 from advisor.ui.tips import Tips, set_tip
 
 from .components import (CustomizedPlaneWidget, HKLPlane2DWidget,
@@ -36,6 +37,7 @@ class StructureFactorTab(TabInterface):
 
         self._create_hkl_plane_tab()
         self._create_customized_tab()
+        polish_workspace(self)
 
     @pyqtSlot()
     def _open_reflection_popup_from_hkl_plane(self):
@@ -108,15 +110,17 @@ class StructureFactorTab(TabInterface):
         self.hkl_plane_2d = HKLPlane2DWidget()
 
         # Layout components
-        main_layout.addWidget(self.hkl_plane_3d, 0, 0)  # 3D top-left
-        main_layout.addWidget(self.hkl_controls, 1, 0)  # Controls bottom-left
-        main_layout.addWidget(self.hkl_plane_2d, 0, 1, 2, 1)  # 2D right side spanning both rows
+        rail = control_rail(self.hkl_controls)
+        rail.setMinimumWidth(430)
+        main_layout.addWidget(rail, 0, 0)
+        self.hkl_plot_tabs = plot_tabs(("2D plane", self.hkl_plane_2d),
+                                       ("3D overview", self.hkl_plane_3d))
+        main_layout.addWidget(self.hkl_plot_tabs, 0, 1)
 
         # Set layout proportions
-        main_layout.setColumnStretch(0, 1)  # Left column
-        main_layout.setColumnStretch(1, 1)  # Right column
-        main_layout.setRowStretch(0, 3)     # More space for visualizers
-        main_layout.setRowStretch(1, 1)     # Less space for controls
+        main_layout.setColumnStretch(0, 2)
+        main_layout.setColumnStretch(1, 5)
+        main_layout.setRowStretch(0, 1)
 
         # Connect signals
         self._connect_hkl_signals()

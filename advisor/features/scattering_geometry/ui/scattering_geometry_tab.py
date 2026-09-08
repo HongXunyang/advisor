@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
                              QFormLayout, QFrame, QGridLayout,
                              QGroupBox, QHBoxLayout, QHeaderView, QLabel,
                              QMessageBox, QPushButton, QRadioButton,
-                             QTableWidget, QTableWidgetItem, QTabWidget,
+                             QTableWidget, QTableWidgetItem, QTabWidget, QSplitter,
                              QVBoxLayout, QWidget)
 
 # Tell matplotlib to render plots using the Qt5 framework with the Agg backend for drawing
@@ -17,6 +17,9 @@ matplotlib.use("Qt5Agg")
 from advisor.features.scattering_geometry.domain import BrillouinCalculator
 from advisor.ui.dialogs.change_structure_dialog import ChangeStructureDialog, change_structure_icon
 from advisor.ui.tab_interface import TabInterface
+from advisor.ui.components.workspace_presentation import (
+    control_rail, fit_atomic_preview, plot_tabs, polish_workspace,
+)
 from advisor.ui.tips import Tips, set_tip
 from advisor.ui.visualizers import (HKLScan2DVisualizer, ScatteringVisualizer,
                                     UnitcellVisualizer)
@@ -67,9 +70,10 @@ class ScatteringGeometryTab(TabInterface):
         """Initialize UI components."""
         # Create tab widget for input methods
         self.tab_widget = QTabWidget()
-        self.layout.addWidget(self.tab_widget, 0, 0)  # Back to (0,0) position
+        self.layout.addWidget(self.tab_widget, 0, 0)
+        self.layout.setRowStretch(0, 1)
 
-        # Create and add parameter header to the right
+        # Keep parameters in the right-hand information panel.
         self._create_parameter_header()
 
         # Create tabs for different functionalities
@@ -77,62 +81,63 @@ class ScatteringGeometryTab(TabInterface):
         self._create_hkl_to_angles_tab()
         self._create_hk_to_angles_tth_fixed_tab()
         self._create_hkl_scan_tab()  # Add the new HKL scan tab
+        polish_workspace(self)
 
     def _create_parameter_header(self):
         """Create parameter display header."""
         # Create main header frame
         header_frame = QFrame()
-        header_frame.setObjectName("parameterPanel")
-        header_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        header_frame.setLineWidth(1)
-        header_frame.setFixedWidth(200)  # Reduced from 280 to 220 for narrower panel
+        header_frame.setObjectName("workspaceContext")
+        header_frame.setFixedWidth(165)
 
-        # Create header layout - vertical for sidebar
         header_layout = QVBoxLayout(header_frame)
-        header_layout.setContentsMargins(15, 15, 15, 15)
-        header_layout.setSpacing(15)  # Reduced from 25 to 15 for more compact layout
-
-        # Crystal Structure section
-        crystal_title = QLabel("Crystal Structure")
-        crystal_title.setObjectName("parameterSectionTitle")
+        header_layout.setContentsMargins(12, 14, 12, 14)
+        header_layout.setSpacing(12)
+        crystal_title = QLabel("Crystal")
+        crystal_title.setProperty("workRole", "heading")
         header_layout.addWidget(crystal_title)
 
         self.crystal_info_label = QLabel(
-            "a = -- Å\nb = -- Å\nc = -- Å\nα = --°\nβ = --°\nγ = --°"
+            "a = -- Å\nb = -- Å\nc = -- Å\nα = --°\nβ = --°\nγ = --°", header_frame
         )
         self.crystal_info_label.setObjectName("parameterText")
         self.crystal_info_label.setWordWrap(True)
         header_layout.addWidget(self.crystal_info_label)
+        self.context_label = QLabel("Crystal and beam parameters")
+        self.context_label.setTextFormat(Qt.PlainText)
+        self.context_label.setParent(header_frame)
+        self.context_label.hide()
 
-        # X-ray section
-        xray_title = QLabel("X-ray Parameters")
-        xray_title.setObjectName("parameterSectionTitle")
-        header_layout.addWidget(xray_title)
+        beam_title = QLabel("X-ray beam")
+        beam_title.setProperty("workRole", "heading")
+        header_layout.addWidget(beam_title)
 
-        self.xray_info_label = QLabel("Energy: -- eV\nλ: -- Å\n|k|: -- Å⁻¹")
+        self.xray_info_label = QLabel("Energy: -- eV\nλ: -- Å\n|k|: -- Å⁻¹", header_frame)
         self.xray_info_label.setObjectName("parameterText")
         self.xray_info_label.setWordWrap(True)
         header_layout.addWidget(self.xray_info_label)
+        header_layout.addStretch(1)
 
-        # Add stretch to push edit button to the bottom
-        header_layout.addStretch()
+        details_button = QPushButton("Parameters…")
+        details_button.clicked.connect(self._show_parameter_details)
+        header_layout.addWidget(details_button)
 
         # Change structure / start over button -- opens the same dialog as
         # the toolbar/menu action, reachable from this tab too.
-        change_structure_button = QPushButton("Change Structure…")
+        change_structure_button = QPushButton("Change structure…")
         change_structure_button.setObjectName("changeStructureButton")
-        change_structure_button.setIcon(change_structure_icon())
         change_structure_button.setToolTip("Pick a different CIF, or start over from a blank setup")
         change_structure_button.clicked.connect(self._open_change_structure_dialog)
-        change_structure_button.setFixedHeight(35)  # Reduced from 45 to 35
         header_layout.addWidget(change_structure_button)
 
-        # Add header to main layout - right side
         self.layout.addWidget(header_frame, 0, 1)
 
         # Set column stretch so tab widget takes most space
-        self.layout.setColumnStretch(0, 5)  # Tab widget gets more space
-        self.layout.setColumnStretch(1, 1)  # Header gets less space
+        self.layout.setColumnStretch(0, 1)
+
+    def _show_parameter_details(self):
+        QMessageBox.information(self, "Crystal and beam parameters",
+                                self.crystal_info_label.text() + "\n\n" + self.xray_info_label.text())
 
     def set_parameters(self, params: dict):
         """Set parameters from global settings."""
@@ -196,6 +201,7 @@ class ScatteringGeometryTab(TabInterface):
             for viz in unit_cell_vizs:
                 viz.set_parameters({"cif_file": cif_file_path})
                 viz.visualize_unitcell()
+                fit_atomic_preview(viz)
                 
         except Exception as e:
             print(f"**Error** updating unit cell visualizers: {e}")
@@ -227,6 +233,11 @@ class ScatteringGeometryTab(TabInterface):
             f"|k|: {wavevector:.3f} Å⁻¹"
         )
         self.xray_info_label.setText(xray_text)
+        self.context_label.setText(
+            f"Crystal  a {self.parameters.get('a', 0):.3f} · "
+            f"b {self.parameters.get('b', 0):.3f} · "
+            f"c {self.parameters.get('c', 0):.3f} Å    |    Beam {energy:g} eV"
+        )
 
     @pyqtSlot()
     def _open_change_structure_dialog(self):
@@ -255,13 +266,13 @@ class ScatteringGeometryTab(TabInterface):
         self.angles_to_hkl_controls = AnglesToHKLControls(parent=self)
         self.angles_to_hkl_controls.calculateClicked.connect(self.calculate_hkl)
         self.angles_to_hkl_controls.anglesChanged.connect(self.calculate_hkl)  # Auto-calculate on angle change
-        left_layout.addWidget(self.angles_to_hkl_controls)
+        left_layout.addWidget(control_rail(self.angles_to_hkl_controls,
+            pin_action=self.angles_to_hkl_controls.calculate_button), 1)
 
         # Create results widget
         self.angles_to_hkl_results = AnglesToHKLResults(parent=self)
         left_layout.addWidget(self.angles_to_hkl_results)
 
-        left_layout.addStretch()  # Add stretch to push content to top
 
         # Right column - Visualizers
         right_column = QWidget()
@@ -270,14 +281,13 @@ class ScatteringGeometryTab(TabInterface):
         # Scattering visualizer
         self.angles_to_hkl_visualizer.visualize_lab_system()
         self.angles_to_hkl_visualizer.visualize_scattering_geometry()
-        right_layout.addWidget(self.angles_to_hkl_visualizer)
-        
-        # Unit cell visualizer
-        right_layout.addWidget(self.angles_to_hkl_unitcell_viz)
+        right_layout.addWidget(plot_tabs(
+            ("Geometry", self.angles_to_hkl_visualizer),
+            ("Atomic structure", self.angles_to_hkl_unitcell_viz)))
 
         # Add columns to main layout
-        angles_layout.addWidget(left_column, 2)  # Left column takes 2 parts (ratio base)
-        angles_layout.addWidget(right_column, 3)  # Right column takes 3 parts (equivalent to 1.5x)
+        angles_layout.addWidget(left_column, 3)
+        angles_layout.addWidget(right_column, 2)
 
         # Add to tab widget
         self.tab_widget.addTab(angles_tab, "Angles → HKL")
@@ -294,14 +304,14 @@ class ScatteringGeometryTab(TabInterface):
         # Create controls widget
         self.hkl_to_angles_controls = HKLToAnglesControls(parent=self)
         self.hkl_to_angles_controls.calculateClicked.connect(self.calculate_angles)
-        left_layout.addWidget(self.hkl_to_angles_controls)
+        left_layout.addWidget(control_rail(self.hkl_to_angles_controls,
+            pin_action=self.hkl_to_angles_controls.calculate_button), 1)
 
         # Create results widget
         self.hkl_to_angles_results = HKLToAnglesResultsWidget(parent=self)
         # self.hkl_to_angles_results.solutionSelected.connect(self.on_angle_solution_selected)
         left_layout.addWidget(self.hkl_to_angles_results)
 
-        left_layout.addStretch()  # Add stretch to push content to top
 
         # Right column - Visualizers
         right_column = QWidget()
@@ -310,14 +320,13 @@ class ScatteringGeometryTab(TabInterface):
         # Scattering visualizer
         self.hkl_to_angles_visualizer.visualize_lab_system()
         self.hkl_to_angles_visualizer.visualize_scattering_geometry()
-        right_layout.addWidget(self.hkl_to_angles_visualizer)
-        
-        # Unit cell visualizer
-        right_layout.addWidget(self.hkl_to_angles_unitcell_viz)
+        right_layout.addWidget(plot_tabs(
+            ("Geometry", self.hkl_to_angles_visualizer),
+            ("Atomic structure", self.hkl_to_angles_unitcell_viz)))
 
         # Add columns to main layout
-        hkl_layout.addWidget(left_column, 2)  # Left column takes 2 parts (ratio base)
-        hkl_layout.addWidget(right_column, 3)  # Right column takes 3 parts (equivalent to 1.5x)
+        hkl_layout.addWidget(left_column, 3)
+        hkl_layout.addWidget(right_column, 2)
 
         # Add to tab widget
         self.tab_widget.addTab(hkl_tab, "HKL → Angles")
@@ -334,14 +343,14 @@ class ScatteringGeometryTab(TabInterface):
         # Create controls widget
         self.hk_angles_controls = HKAnglesControls(parent=self)
         self.hk_angles_controls.calculateClicked.connect(self.calculate_angles_tth_fixed)
-        left_layout.addWidget(self.hk_angles_controls)
+        left_layout.addWidget(control_rail(self.hk_angles_controls,
+            pin_action=self.hk_angles_controls.calculate_button), 1)
 
         # Create results widget
         self.hk_angles_results = HKAnglesResultsWidget(parent=self)
         # self.hk_angles_results.solutionSelected.connect(self.on_angle_solution_selected_tth)
         left_layout.addWidget(self.hk_angles_results)
 
-        left_layout.addStretch()  # Add stretch to push content to top
 
         # Right column - Visualizers
         right_column = QWidget()
@@ -350,41 +359,50 @@ class ScatteringGeometryTab(TabInterface):
         # Scattering visualizer
         self.hk_fixed_tth_visualizer.visualize_lab_system()
         self.hk_fixed_tth_visualizer.visualize_scattering_geometry()
-        right_layout.addWidget(self.hk_fixed_tth_visualizer)
-        
-        # Unit cell visualizer
-        right_layout.addWidget(self.hk_fixed_tth_unitcell_viz)
+        right_layout.addWidget(plot_tabs(
+            ("Geometry", self.hk_fixed_tth_visualizer),
+            ("Atomic structure", self.hk_fixed_tth_unitcell_viz)))
 
         # Add columns to main layout
-        hk_layout.addWidget(left_column, 2)  # Left column takes 2 parts (ratio base)
-        hk_layout.addWidget(right_column, 3)  # Right column takes 3 parts (equivalent to 1.5x)
+        hk_layout.addWidget(left_column, 3)
+        hk_layout.addWidget(right_column, 2)
 
         # Add to tab widget
-        self.tab_widget.addTab(hk_tab, "HK to Angles | tth fixed")
+        self.tab_widget.addTab(hk_tab, "Plane → Angles · fixed tth")
 
     def _create_hkl_scan_tab(self):
         """Create tab for scanning a range of HKL values."""
         scan_tab = QWidget()
-        scan_layout = QHBoxLayout(scan_tab)
+        scan_layout = QVBoxLayout(scan_tab)
+        upper_panel = QWidget()
+        upper_layout = QHBoxLayout(upper_panel)
 
         # Create controls widget
         self.hkl_scan_controls = HKLScanControls(parent=self)
         self.hkl_scan_controls.calculateClicked.connect(self.calculate_hkl_scan)
-        scan_layout.addWidget(self.hkl_scan_controls, 1)
+        self.hkl_scan_controls.calculate_button.setText("Calculate scan")
+        controls = control_rail(self.hkl_scan_controls,
+            pin_action=self.hkl_scan_controls.calculate_button)
+        controls.setMinimumWidth(400)
+        upper_layout.addWidget(controls, 1)
 
         # Create results table & 2d visualization
-        results_layout = QVBoxLayout()
+        results_splitter = QSplitter(Qt.Vertical)
+        results_panel = QWidget()
+        results_layout = QVBoxLayout(results_panel)
+        results_layout.setContentsMargins(0, 0, 0, 0)
 
         # Results table
         self.hkl_scan_results_table = HKLScanResultsTable(parent=self)
-        results_layout.addWidget(self.hkl_scan_results_table, 1)
+        results_layout.addWidget(self.hkl_scan_results_table.get_widget(), 1)
         
         # Reminder notes below results table
         notes_layout = QVBoxLayout()
         notes_layout.setSpacing(2)
-        note1 = QLabel("Note: Each HKL point may have up to two solutions.")
+        note1 = QLabel("Solutions are grouped by scan point.")
         note1.setStyleSheet("color: gray; font-size: 11px; font-style: italic;")
         note2 = QLabel("Some HKL points may be unreachable due to the momentum transfer limit at current energy.")
+        note2.setWordWrap(True)
         note2.setStyleSheet("color: gray; font-size: 11px; font-style: italic;")
         notes_layout.addWidget(note1)
         notes_layout.addWidget(note2)
@@ -392,12 +410,16 @@ class ScatteringGeometryTab(TabInterface):
         
         # 2D visualizer section
         self.hkl_scan_visualizer = HKLScan2DVisualizer(parent=self)
-        results_layout.addWidget(self.hkl_scan_visualizer, 1)
+        upper_layout.addWidget(self.hkl_scan_visualizer, 1)
+        results_splitter.addWidget(upper_panel)
+        results_splitter.addWidget(results_panel)
+        results_splitter.setSizes([360, 240])
+        results_splitter.setChildrenCollapsible(False)
 
         # Add to layout
-        scan_layout.addLayout(results_layout, 2)
+        scan_layout.addWidget(results_splitter)
         # Add to tab widget
-        self.tab_widget.addTab(scan_tab, "HKL Scan | tth fixed")
+        self.tab_widget.addTab(scan_tab, "HKL Scan · fixed tth")
 
     @pyqtSlot()
     def calculate_hkl_scan(self):
@@ -523,6 +545,7 @@ class ScatteringGeometryTab(TabInterface):
             )
 
             self.angles_to_hkl_unitcell_viz.visualize_unitcell()
+            fit_atomic_preview(self.angles_to_hkl_unitcell_viz)
             self.angles_to_hkl_unitcell_viz.visualize_scattering_geometry(
                 scattering_angles=result
             ) 
@@ -594,6 +617,7 @@ class ScatteringGeometryTab(TabInterface):
                 scattering_angles=first_solution, is_clear=False
             )
             self.hkl_to_angles_unitcell_viz.visualize_unitcell()
+            fit_atomic_preview(self.hkl_to_angles_unitcell_viz)
             self.hkl_to_angles_unitcell_viz.visualize_scattering_geometry(
                 scattering_angles=first_solution
             )
@@ -668,6 +692,7 @@ class ScatteringGeometryTab(TabInterface):
                 scattering_angles=first_solution, is_clear=False
             )
             self.hk_fixed_tth_unitcell_viz.visualize_unitcell()
+            fit_atomic_preview(self.hk_fixed_tth_unitcell_viz)
             self.hk_fixed_tth_unitcell_viz.visualize_scattering_geometry(
                 scattering_angles=first_solution
             )

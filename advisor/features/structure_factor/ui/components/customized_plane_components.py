@@ -18,6 +18,7 @@ from advisor.ui.visualizers import (StructureFactorVisualizer2D,
                                     StructureFactorVisualizer3D)
 
 from .hkl_plane_components import EnergySpinBox
+from advisor.ui.components.workspace_presentation import control_rail, plot_tabs
 
 
 class CustomizedPlaneControls(QWidget):
@@ -46,31 +47,27 @@ class CustomizedPlaneControls(QWidget):
         
         # Compact U, V, Center in one row using text inputs like 110, 010, 000
         uvc_row = QWidget()
-        uvc_layout = QHBoxLayout(uvc_row)
+        uvc_layout = QGridLayout(uvc_row)
         uvc_layout.setContentsMargins(0, 0, 0, 0)
         
         self.u_line = QLineEdit()
         self.u_line.setPlaceholderText("1,1,0")
         self.u_line.setText("1,1,0")
         
-        self.u_line.setFixedWidth(80)
         self.v_line = QLineEdit()
         self.v_line.setPlaceholderText("0,0,1")
         self.v_line.setText("0,0,1")
-        self.v_line.setFixedWidth(80)
         
         self.c_line = QLineEdit()
         self.c_line.setPlaceholderText("0,0,0")
         self.c_line.setText("0,0,0")
-        self.c_line.setFixedWidth(80)
 
-        uvc_layout.addWidget(QLabel("U"))
-        uvc_layout.addWidget(self.u_line)
-        uvc_layout.addWidget(QLabel("V"))
-        uvc_layout.addWidget(self.v_line)
-        uvc_layout.addWidget(QLabel("Center"))
-        uvc_layout.addWidget(self.c_line)
-        config_layout.addRow("", uvc_row)
+        for column, (name, field) in enumerate((("U", self.u_line), ("V", self.v_line),
+                                               ("Center", self.c_line))):
+            uvc_layout.addWidget(QLabel(name), 0, column)
+            uvc_layout.addWidget(field, 1, column)
+            uvc_layout.setColumnStretch(column, 1)
+        config_layout.addRow(uvc_row)
         
         # u,v range controls on the same row
         ranges_row = QWidget()
@@ -89,24 +86,25 @@ class CustomizedPlaneControls(QWidget):
         ranges_layout.addWidget(self.u_range_spin)
         ranges_layout.addWidget(QLabel("V range"))
         ranges_layout.addWidget(self.v_range_spin)
-        config_layout.addRow("", ranges_row)
+        config_layout.addRow(ranges_row)
         
         # Calculate Structure Factor + Export buttons, side by side
-        self.init_btn = QPushButton("Calculate Structure Factor")
+        self.init_btn = QPushButton("Calculate structure factors")
         self.init_btn.clicked.connect(self.initializeClicked.emit)
         self.export_btn = QPushButton("Export")
         self.export_btn.clicked.connect(self.exportClicked.emit)
 
-        self.status_label = QLabel("Status: Provide CIF in initialization window, then initialize")
-        self.status_label.setStyleSheet("color: orange; font-weight: bold;")
-        config_layout.addRow("", self.status_label)
+        self.status_label = QLabel("Choose energy and plane, then calculate.")
+        self.status_label.setWordWrap(True)
+        self.status_label.setProperty("workRole", "status")
+        config_layout.addRow(self.status_label)
 
         btn_row = QWidget()
-        btn_row_layout = QHBoxLayout(btn_row)
+        btn_row_layout = QVBoxLayout(btn_row)
         btn_row_layout.setContentsMargins(0, 0, 0, 0)
         btn_row_layout.addWidget(self.init_btn)
         btn_row_layout.addWidget(self.export_btn)
-        config_layout.addRow("", btn_row)
+        config_layout.addRow(btn_row)
         
         layout.addWidget(config_group)
         
@@ -123,8 +121,9 @@ class CustomizedPlaneControls(QWidget):
         
     def set_status(self, message: str, color: str = "orange"):
         """Update status label."""
-        self.status_label.setText(f"Status: {message}")
-        self.status_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+        self.status_label.setText(message)
+        tone = {"red": "#B42318", "orange": "#9A5B13"}.get(color, "#5E6D7D")
+        self.status_label.setStyleSheet(f"color: {tone};")
         
     def get_energy_ev(self):
         """Get current energy in eV."""
@@ -460,25 +459,28 @@ class CustomizedPlaneWidget(QWidget):
         
         # Left panel: configuration (bottom-left)
         self.controls = CustomizedPlaneControls()
-        main_layout.addWidget(self.controls, 1, 0)
         
         # Right panel: accessible region controls (bottom-right)
         self.accessible_controls = AccessibleRegionControls()
-        main_layout.addWidget(self.accessible_controls, 1, 1)
         
         # 2D plane visualizer (top-right)
         self.plane_2d = CustomizedPlane2DWidget()
-        main_layout.addWidget(self.plane_2d, 0, 1, 1, 1)
         
         # 3D visualizer (top-left)
         self.plane_3d = CustomizedPlane3DWidget()
-        main_layout.addWidget(self.plane_3d, 0, 0)
+        legend = QLabel("×  Outside the selected accessibility constraints")
+        legend.setWordWrap(True)
+        legend.setProperty("workRole", "status")
+        rail = control_rail(self.controls, self.accessible_controls, legend)
+        rail.setMinimumWidth(430)
+        main_layout.addWidget(rail, 0, 0)
+        self.plot_tabs = plot_tabs(("2D plane", self.plane_2d), ("3D overview", self.plane_3d))
+        main_layout.addWidget(self.plot_tabs, 0, 1)
 
         # Set layout proportions
-        main_layout.setColumnStretch(0, 1)  # Left column
-        main_layout.setColumnStretch(1, 1)  # Right column
-        main_layout.setRowStretch(0, 3)     # More space for visualizers
-        main_layout.setRowStretch(1, 1)     # Less space for controls        
+        main_layout.setColumnStretch(0, 2)
+        main_layout.setColumnStretch(1, 5)
+        main_layout.setRowStretch(0, 1)
 
         # Connect signals
         self.controls.parametersChanged.connect(self.update_plots)

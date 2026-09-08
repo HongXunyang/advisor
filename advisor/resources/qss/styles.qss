@@ -540,3 +540,75 @@ QCheckBox[designRole="quietCheck"]::indicator:checked {
 }
 QCheckBox[designRole="quietCheck"]:focus { color: #245FA6; }
 QCheckBox[designRole="quietCheck"]::indicator:disabled { background-color: #E1E6ED; border-color: #C8D1DD; }
+
+/* Scientific workspaces share the setup palette and action hierarchy. */
+QWidget[workRole="workspace"], QScrollArea#workspaceRail { background: #F5F7FA; }
+QFrame#workspaceContext { background: #F5F6F8; border: 1px solid #E0E4E9; border-radius: 5px; }
+QLabel[workRole="text"] { color: #243142; font-size: 12px; background: transparent; }
+QLabel[workRole="status"] { color: #5E6D7D; font-size: 12px; background: transparent; }
+QGroupBox[workRole="panel"] {
+    background: #FFFFFF; border: 1px solid #D6DDE5; border-radius: 6px;
+    margin-top: 12px; font-size: 13px; font-weight: bold; color: #243142;
+}
+QGroupBox[workRole="panel"]::title {
+    subcontrol-origin: margin; subcontrol-position: top left; left: 12px;
+    padding: 0 5px; color: #33465B;
+}
+QLineEdit[workRole="field"], QAbstractSpinBox[workRole="field"] {
+    color: #243142; background: #FFFFFF; border: 1px solid #BFCBDC;
+    border-radius: 4px; padding: 4px 7px; min-height: 24px; font-size: 13px;
+}
+QLineEdit[workRole="output"], QAbstractSpinBox[workRole="output"] {
+    color: #164C87; background: #EDF4FC; border: 1px solid #C8D9EF;
+    border-radius: 4px; padding: 5px 8px; min-height: 26px; font-size: 15px; font-weight: bold;
+}
+QLineEdit[workRole="field"]:focus, QAbstractSpinBox[workRole="field"]:focus { border-color: #245FA6; }
+QPushButton[workRole="primary"],
+QPushButton#calculateButton[workRole="primary"],
+QPushButton#calculateHKLButton[workRole="primary"] {
+    color: white; background: #245FA6; border: 1px solid #245FA6;
+    border-radius: 5px; padding: 7px 12px; min-height: 24px; font-size: 13px; font-weight: bold;
+}
+QPushButton[workRole="primary"]:hover,
+QPushButton#calculateButton[workRole="primary"]:hover,
+QPushButton#calculateHKLButton[workRole="primary"]:hover { background: #1E528F; }
+QPushButton[workRole="secondary"], QPushButton[workRole="toggle"],
+QPushButton#changeStructureButton[workRole="secondary"] {
+    color: #33465B; background: #FFFFFF; border: 1px solid #C8D1DD;
+    border-radius: 4px; padding: 5px 9px; min-height: 22px; font-size: 12px;
+}
+QPushButton[workRole="toggle"]:checked { color: #245FA6; background: #E4EFFB; border-color: #3976B9; font-weight: bold; }
+QPushButton[workRole="secondary"]:hover, QPushButton[workRole="toggle"]:hover { background: #EDF4FC; border-color: #3976B9; }
+QPushButton[workRole="primary"]:disabled, QPushButton[workRole="secondary"]:disabled {
+    background: #E1E6ED; color: #687789; border-color: #D6DDE5;
+}
+QTableWidget[workRole="results"] {
+    background: white; alternate-background-color: #F5F8FC; color: #243142;
+    border: 1px solid #D6DDE5; border-radius: 4px; font-size: 13px;
+    selection-background-color: #DFECFA; selection-color: #163C69;
+}
+QTableWidget[workRole="results"] QHeaderView::section {
+    background: #EDF2F8; color: #33465B; border: none; padding: 7px 6px;
+    font-size: 12px; font-weight: bold;
+}
+QTabWidget#workspaceSubtabs::pane, QTabWidget#workspacePlotTabs::pane { border: 1px solid #D6DDE5; background: white; }
+QTabWidget#workspaceFeatures > QTabBar::tab,
+QTabWidget#workspaceSubtabs > QTabBar::tab,
+QTabWidget#workspacePlotTabs > QTabBar::tab {
+    background: #F0F3F7; color: #5E6D7D; border: none;
+    border-bottom: 3px solid transparent; min-width: 70px; padding: 9px 14px; font-size: 12px;
+}
+QTabWidget#workspaceFeatures > QTabBar::tab:selected,
+QTabWidget#workspaceSubtabs > QTabBar::tab:selected,
+QTabWidget#workspacePlotTabs > QTabBar::tab:selected {
+    background: white; color: #245FA6; border-bottom-color: #245FA6;
+}
+/* Side navigation preserves vertical room for the working panels. */
+QTabWidget#workspaceFeatures > QTabBar::tab {
+    border-bottom: none; border-left: 3px solid transparent; padding: 8px 6px;
+}
+QTabWidget#workspaceFeatures > QTabBar::tab:selected {
+    border-bottom: none; border-left-color: #245FA6;
+}
+QLabel[workRole="heading"] { color: #5E6D7D; font-size: 13px; font-weight: bold; background: transparent; }
+QFrame#workspaceContext QLabel#parameterText { color: #33465B; font-size: 12px; background: transparent; }

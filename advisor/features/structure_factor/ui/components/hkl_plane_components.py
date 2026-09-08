@@ -102,24 +102,25 @@ class HKLPlaneControls(QWidget):
         toggle_layout.addWidget(self.hk_toggle_btn)
         toggle_layout.addWidget(self.hl_toggle_btn)
         toggle_layout.addWidget(self.kl_toggle_btn)
-        config_layout.addRow("Plane:", toggle_row)
+        config_layout.addRow(toggle_row)
         
         # Initialize + Export buttons, side by side
         init_row = QWidget()
-        init_row_layout = QHBoxLayout(init_row)
+        init_row_layout = QVBoxLayout(init_row)
         init_row_layout.setContentsMargins(0, 0, 0, 0)
-        self.init_btn = QPushButton("Initialize Calculator")
+        self.init_btn = QPushButton("Calculate structure factors")
         self.init_btn.clicked.connect(self.initializeClicked.emit)
         self.export_btn = QPushButton("Export")
         self.export_btn.clicked.connect(self.exportClicked.emit)
         init_row_layout.addWidget(self.init_btn)
         init_row_layout.addWidget(self.export_btn)
-        config_layout.addRow("", init_row)
+        config_layout.addRow(init_row)
         
         # Status label
-        self.status_label = QLabel("Status: Provide CIF in initialization window, then initialize")
-        self.status_label.setStyleSheet("color: orange; font-weight: bold;")
-        config_layout.addRow("", self.status_label)
+        self.status_label = QLabel("Choose energy and plane, then calculate.")
+        self.status_label.setWordWrap(True)
+        self.status_label.setProperty("workRole", "status")
+        config_layout.addRow(self.status_label)
         
         layout.addWidget(config_group)
         
@@ -133,8 +134,6 @@ class HKLPlaneControls(QWidget):
         
     def _update_toggle_styles(self, active: str):
         """Update toggle button colors based on active plane."""
-        active_css = "background-color: #2ecc71; color: white; font-weight: bold;"
-        inactive_css = "background-color: #bdc3c7; color: #333333;"
         mapping = {
             "HK": self.hk_toggle_btn,
             "HL": self.hl_toggle_btn,
@@ -143,15 +142,18 @@ class HKLPlaneControls(QWidget):
         for name, btn in mapping.items():
             if name == active:
                 btn.setChecked(True)
-                btn.setStyleSheet(active_css)
+                btn.setProperty("workRole", "toggle")
             else:
                 btn.setChecked(False)
-                btn.setStyleSheet(inactive_css)
+                btn.setProperty("workRole", "toggle")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
                 
     def set_status(self, message: str, color: str = "orange"):
         """Update status label."""
-        self.status_label.setText(f"Status: {message}")
-        self.status_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+        self.status_label.setText(message)
+        tone = {"red": "#B42318", "orange": "#9A5B13"}.get(color, "#5E6D7D")
+        self.status_label.setStyleSheet(f"color: {tone};")
         
     def get_energy_ev(self):
         """Get current energy in eV."""
@@ -301,8 +303,8 @@ class HKLPlane2DWidget(QWidget):
         main_layout.addWidget(self.ctrl_stack_container, 1, 0)
         
         # Set layout proportions
-        main_layout.setRowStretch(0, 3)  # More space for visualizer
-        main_layout.setRowStretch(1, 1)  # Less space for controls
+        main_layout.setRowStretch(0, 1)
+        main_layout.setRowStretch(1, 0)
         
         # Default to HK plane
         self.set_active_plane("HK")

@@ -436,9 +436,10 @@ class HKAnglesResultsWidget(QWidget):
         # roots) -- see it via "Show History" instead, matching the HKL ->
         # Angles panel's style.
         self.results_table = QTableWidget()
-        self.results_table.setColumnCount(4)
-        self.results_table.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "χ (°)", "φ (°)"])
+        self.results_table.setColumnCount(5)
+        self.results_table.setHorizontalHeaderLabels(["tth (°)", "θ (°)", "χ (°)", "φ (°)", "Feasibility"])
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.results_table.verticalHeader().setVisible(False)
         self.results_table.setMaximumHeight(90)
         self.results_table.itemSelectionChanged.connect(self._on_selection_changed)
@@ -486,11 +487,13 @@ class HKAnglesResultsWidget(QWidget):
 
             # Color based on feasibility
             feasible = feasible_list[i] if i < len(feasible_list) else True
-            color = QColor(198, 239, 206) if feasible else QColor(255, 199, 206)
+            status = QTableWidgetItem("Feasible" if feasible else "Outside range")
+            status.setForeground(QBrush(QColor("#26734D" if feasible else "#9A5B13")))
+            self.results_table.setItem(row, 4, status)
             for col in range(4):
                 item = self.results_table.item(row, col)
                 if item:
-                    item.setBackground(QBrush(color))
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
     def _on_selection_changed(self):
         """Handle selection change in the table."""

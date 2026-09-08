@@ -368,9 +368,11 @@ class HKLScanResultsTable(QTableWidget):
         super().__init__(parent)
 
         # Set up table - added Sol# column to show solution 1 or 2
-        self.setColumnCount(8)
-        self.setHorizontalHeaderLabels(["H", "K", "L", "Sol#", "θ (°)", "φ (°)", "χ (°)", "β (°)"])
+        self.setColumnCount(9)
+        self.setHorizontalHeaderLabels(["H", "K", "L", "Sol#", "θ (°)", "χ (°)", "φ (°)", "β (°)", "Feasibility"])
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeToContents)
+        self.horizontalHeader().setMinimumSectionSize(62)
 
         # Hide vertical header (row numbers)
         self.verticalHeader().setVisible(False)
@@ -378,7 +380,7 @@ class HKLScanResultsTable(QTableWidget):
         # Define colors for alternating HKL groups and solutions
         self.group_colors = [
             QColor(255, 255, 255),  # White - group 0
-            QColor(230, 230, 240),  # Light gray - group 1
+            QColor("#F1F5FA"),  # Subtle separation of scan groups
         ]
         self.solution_colors = [
             QColor(240, 248, 255),  # Alice blue - solution 1
@@ -449,18 +451,18 @@ class HKLScanResultsTable(QTableWidget):
             self.setItem(row_position, 6, QTableWidgetItem(f"{phi_values[i]:.1f}"))
             self.setItem(row_position, 7, QTableWidgetItem(f"{tth_values[0]-theta_values[i]:.1f}"))
 
-            # Determine row color based on feasibility and group
-            if not feasible_values[i]:
-                row_color = self.infeasible_color
-            else:
-                # Alternate colors by HKL group
-                group_idx = solution_groups[i] if i < len(solution_groups) else i
-                row_color = self.group_colors[group_idx % 2]
+            status = QTableWidgetItem("Feasible" if feasible_values[i] else "Outside range")
+            status.setForeground(QBrush(QColor("#26734D" if feasible_values[i] else "#9A5B13")))
+            self.setItem(row_position, 8, status)
+            group_idx = solution_groups[i] if i < len(solution_groups) else i
+            row_color = self.group_colors[group_idx % 2]
             
             for col in range(self.columnCount()):
                 item = self.item(row_position, col)
                 if item:
                     item.setBackground(QBrush(row_color))
+                    if col < 8:
+                        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         # Re-enable sorting and export button
         self.setSortingEnabled(True)
@@ -537,4 +539,3 @@ class HKLScanResultsTable(QTableWidget):
         container = QWidget()
         container.setLayout(self.layout_wrapper)
         return container
-

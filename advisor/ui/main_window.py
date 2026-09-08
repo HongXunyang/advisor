@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         # The hidden scientific workspace must not dictate setup's minimum
         # window size. Restore its normal sizing when that page is shown.
         self.tab_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.tab_widget.setObjectName("workspaceFeatures")
         self.tab_widget.setTabPosition(QTabWidget.West)
         self.tab_widget.setIconSize(QSize(105, 80))
         self.tab_widget.setMovable(True)
