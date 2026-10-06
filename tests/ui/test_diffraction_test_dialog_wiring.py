@@ -7,12 +7,18 @@ existing pattern in tests/features/scattering_geometry/ui/.
 import ast
 
 import numpy as np
+from PyQt5.QtCore import Qt
+from PyQt5.QtTest import QTest
 from PyQt5.QtWidgets import QApplication
 
 from advisor.domain.orientation_calculator import OrientationCalculator
-from advisor.domain.orientation_types import OrientationFitSession
+from advisor.domain.orientation_types import (
+    FIT_METHOD_BUSING_LEVY,
+    FIT_METHOD_KABSCH,
+    OrientationFitSession,
+)
 from advisor.ui.dialogs.diffraction_test_dialog import DiffractionTestDialog
-from tests.conftest import LATTICE_CONFIGS
+from tests.conftest import LATTICE_CONFIGS, consistent_diffraction_row
 
 _LATTICE = LATTICE_CONFIGS["orthorhombic"]
 
@@ -238,3 +244,145 @@ def test_stale_session_not_restored_as_applyable(qapp, message_box_calls):
     assert dialog2.result is None
     assert dialog2._ub_matrix is None
     assert not dialog2.copy_ub_btn.isEnabled()
+
+
+def _inconsistent_rows():
+    """Valid rows with row 2's theta nudged, so Busing-Levy and Kabsch give
+    slightly different (but both valid) UB matrices."""
+    rows = _two_valid_rows()
+    rows[1]["theta"] += 0.3
+    return rows
+
+
+def _select_method(dialog, method):
+    dialog.method_buttons[method].click()
+
+
+def test_method_defaults_to_busing_levy(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    assert dialog.selected_method() == FIT_METHOD_BUSING_LEVY
+    assert dialog.method_buttons[FIT_METHOD_BUSING_LEVY].isChecked()
+    assert not dialog.method_buttons[FIT_METHOD_KABSCH].isChecked()
+    _fill_table(dialog, _two_valid_rows())
+    dialog._calculate_orientation()
+    assert dialog.session.last_result.method == FIT_METHOD_BUSING_LEVY
+
+
+def test_switching_method_recalculates_silently(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    _fill_table(dialog, _inconsistent_rows())
+    dialog._calculate_orientation()
+    bl_ub = dialog._ub_matrix.copy()
+    n_popups = len(message_box_calls.informations)
+
+    _select_method(dialog, FIT_METHOD_KABSCH)
+
+    assert dialog.session.last_result.method == FIT_METHOD_KABSCH
+    assert dialog.apply_btn.isEnabled()
+    assert not np.allclose(dialog._ub_matrix, bl_ub, atol=1e-6)
+    assert np.array_equal(dialog._ub_matrix, dialog.session.last_result.UB)
+    assert len(message_box_calls.informations) == n_popups  # no popup on a toggle
+
+
+def test_switching_method_without_result_only_remembers_choice(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    _select_method(dialog, FIT_METHOD_KABSCH)
+    assert dialog.session.fit_method == FIT_METHOD_KABSCH
+    assert dialog.result is None and not message_box_calls.warnings
+
+    _fill_table(dialog, _two_valid_rows())
+    dialog._calculate_orientation()
+    assert dialog.session.last_result.method == FIT_METHOD_KABSCH
+
+
+def test_method_choice_persists_across_reopen_and_session_clear(qapp, message_box_calls):
+    session = OrientationFitSession()
+    dialog1 = DiffractionTestDialog(dict(_LATTICE), session=session)
+    _select_method(dialog1, FIT_METHOD_KABSCH)
+    dialog1.reject()
+
+    session.clear()  # e.g. a lattice edit: fit state goes, the preference stays
+    dialog2 = DiffractionTestDialog(dict(_LATTICE), session=session)
+    assert dialog2.selected_method() == FIT_METHOD_KABSCH
+
+
+def _rows_parallel_first_pair():
+    """(1,0,0), (2,0,0), (0,1,1): identifiable for Kabsch, but Busing-Levy's
+    primary/secondary pair (rows 1 and 2) is parallel."""
+    return [consistent_diffraction_row(_LATTICE, H, K, L, 20000.0, theta, 0.0, 0.0)
+            for H, K, L, theta in [(1, 0, 0, 45.0), (2, 0, 0, 45.0), (0, 1, 1, 30.0)]]
+
+
+def _choose_kabsch_with_mouse(dialog):
+    """Click the visible Kabsch radio button like a user would."""
+    button = dialog.method_buttons[FIT_METHOD_KABSCH]
+    assert button.isVisible() and button.isEnabled()
+    QTest.mouseClick(button, Qt.LeftButton)
+    assert dialog.selected_method() == FIT_METHOD_KABSCH
+
+
+def test_both_methods_visible_before_any_calculation(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    dialog.show()
+    try:
+        assert all(b.isVisible() for b in dialog.method_buttons.values())
+        assert dialog.result is None and not dialog.apply_btn.isEnabled()
+        assert all(cell.text() == "--" for row in dialog.ub_matrix_cells for cell in row)
+        assert dialog.roll_result.cleanText() == ""  # no misleading 0.0000 before a fit
+
+        _choose_kabsch_with_mouse(dialog)
+        _fill_table(dialog, _rows_parallel_first_pair())
+        dialog._calculate_orientation()
+        assert dialog.result is not None and dialog.session.last_result.method == FIT_METHOD_KABSCH
+    finally:
+        dialog.close()
+
+
+def test_kabsch_reachable_after_failed_busing_levy_calculation(qapp, message_box_calls):
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    dialog.show()
+    try:
+        _fill_table(dialog, _rows_parallel_first_pair())
+        dialog._calculate_orientation()
+        assert dialog.result is None
+        assert "primary" in message_box_calls.warnings[-1][2].lower()
+
+        _choose_kabsch_with_mouse(dialog)
+        dialog._calculate_orientation()
+        assert dialog.result is not None and dialog.apply_btn.isEnabled()
+    finally:
+        dialog.close()
+
+
+def test_method_buttons_visible_after_session_clear(qapp, message_box_calls):
+    session = OrientationFitSession()
+    first = DiffractionTestDialog(dict(_LATTICE), session=session)
+    _fill_table(first, _two_valid_rows())
+    first._calculate_orientation()
+    first.accept()
+    session.clear()
+
+    dialog = DiffractionTestDialog(dict(_LATTICE), session=session)
+    dialog.show()
+    try:
+        assert dialog.result is None
+        _choose_kabsch_with_mouse(dialog)
+        _fill_table(dialog, _rows_parallel_first_pair())
+        dialog._calculate_orientation()
+        assert dialog.result is not None
+    finally:
+        dialog.close()
+
+
+def test_toggling_back_restores_the_first_result(qapp, message_box_calls):
+    """Flipping BL -> Kabsch -> BL recalculates each time and ends where it started."""
+    dialog = DiffractionTestDialog(dict(_LATTICE))
+    _fill_table(dialog, _inconsistent_rows())
+    dialog._calculate_orientation()
+    bl_ub = dialog._ub_matrix.copy()
+
+    _select_method(dialog, FIT_METHOD_KABSCH)
+    _select_method(dialog, FIT_METHOD_BUSING_LEVY)
+
+    assert dialog.session.last_result.method == FIT_METHOD_BUSING_LEVY
+    assert np.array_equal(dialog._ub_matrix, bl_ub)

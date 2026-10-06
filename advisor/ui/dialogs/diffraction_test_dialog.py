@@ -3,20 +3,36 @@
 """Dialog for importing orientation from diffraction test data."""
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFontDatabase
-from PyQt5.QtWidgets import (QApplication, QDialog, QDoubleSpinBox, QFormLayout,
+from PyQt5.QtGui import QFontDatabase, QFontMetrics
+from PyQt5.QtWidgets import (QApplication, QButtonGroup, QDialog, QDoubleSpinBox, QFormLayout,
                              QFrame, QGridLayout, QGroupBox, QHBoxLayout,
-                             QHeaderView, QLabel, QMessageBox, QPushButton,
+                             QHeaderView, QLabel, QMessageBox, QPushButton, QRadioButton,
                              QTableWidget, QTableWidgetItem, QVBoxLayout,
                              QWidget)
 
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
 from advisor.domain.orientation_types import (
+    FIT_METHOD_BUSING_LEVY,
+    FIT_METHOD_KABSCH,
     FIT_QUALITY_GOOD,
     FIT_QUALITY_POOR,
     FIT_QUALITY_WARNING,
     DiffractionMeasurement,
     OrientationFitSession,
+)
+
+# (radio label, one-line hint, method) -- first entry is the default.
+_FIT_METHOD_CHOICES = (
+    ("Busing–Levy", "row 1 exact (BLISS)", FIT_METHOD_BUSING_LEVY),
+    ("Kabsch (LSQ)", "least squares, all rows", FIT_METHOD_KABSCH),
+)
+_FIT_METHOD_LABELS = {method: label for label, _hint, method in _FIT_METHOD_CHOICES}
+_FIT_METHOD_TOOLTIP = (
+    "<b>Busing–Levy</b> (default, as in BLISS/SPEC): row 1 is the primary reflection and is "
+    "matched exactly; row 2 is the secondary and only fixes the rotation about it. "
+    "Further rows only enter the residual.<br><br>"
+    "<b>Kabsch (LSQ)</b>: symmetric least-squares fit over all rows.<br><br>"
+    "Identical for perfectly consistent data. Switching recalculates the current result."
 )
 
 _TABLE_COLUMNS = ("H", "K", "L", "energy", "tth", "theta", "chi", "phi")
@@ -122,7 +138,10 @@ class DiffractionTestDialog(QDialog):
 
         # Results display area: Euler angles on the left, UB matrix on the
         # right, side by side.
-        self.results_group = QGroupBox("Calculated Orientation")
+        # Always visible (with "--" placeholders until a fit exists), so the
+        # method switch in its UB title row can be used before the first
+        # calculation -- e.g. to pick Kabsch when Busing-Levy rejects rows 1/2.
+        self.results_group = QGroupBox("Calculated Orientation (not calculated yet)")
         results_outer_layout = QHBoxLayout(self.results_group)
 
         angles_widget = QWidget()
@@ -150,10 +169,11 @@ class DiffractionTestDialog(QDialog):
         self.yaw_result.setSuffix(" °")
         angles_layout.addRow("Yaw:", self.yaw_result)
 
-        self.error_label = QLabel("Residual Error: --")
+        self.error_label = QLabel("Residual RMS: --")
         self.error_label.setWordWrap(True)
         angles_layout.addRow(self.error_label)
 
+        angles_widget.setMinimumWidth(angles_widget.sizeHint().width())  # never squeeze the labels
         results_outer_layout.addWidget(angles_widget)
 
         separator = QFrame()
@@ -166,14 +186,6 @@ class DiffractionTestDialog(QDialog):
         # stays numerically identical to the domain result. Plain labels
         # (not editable boxes) inside one bordered frame, so it reads as a
         # single matrix rather than nine separate input fields.
-        ub_widget = QWidget()
-        ub_layout = QVBoxLayout(ub_widget)
-        ub_layout.setContentsMargins(0, 0, 0, 0)
-
-        ub_title = QLabel("UB Matrix (Å⁻¹)")
-        ub_title.setStyleSheet("font-weight: bold;")
-        ub_layout.addWidget(ub_title)
-
         matrix_frame = QFrame()
         matrix_frame.setObjectName("ubMatrixFrame")
         matrix_frame.setFrameShape(QFrame.StyledPanel)
@@ -184,11 +196,15 @@ class DiffractionTestDialog(QDialog):
             "QFrame#ubMatrixFrame { background-color: palette(base); "
             "border: 1px solid palette(mid); border-radius: 3px; }"
         )
+        # The matrix takes the panel's full height (its title and the method
+        # choice sit in a column to its right), so rows get generous spacing.
         matrix_grid = QGridLayout(matrix_frame)
-        matrix_grid.setContentsMargins(12, 10, 12, 10)
-        matrix_grid.setHorizontalSpacing(18)
-        matrix_grid.setVerticalSpacing(6)
+        matrix_grid.setContentsMargins(14, 12, 14, 12)
+        matrix_grid.setHorizontalSpacing(14)
+        matrix_grid.setVerticalSpacing(14)
         monospace_font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        # Widest text `.6g` can produce, so no value is ever clipped.
+        cell_width = QFontMetrics(monospace_font).horizontalAdvance("-8.88888e-88") + 4
         self.ub_matrix_cells = []
         for i in range(3):
             row_cells = []
@@ -197,17 +213,47 @@ class DiffractionTestDialog(QDialog):
                 cell.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 cell.setFont(monospace_font)
                 cell.setTextInteractionFlags(Qt.TextSelectableByMouse)
-                cell.setMinimumWidth(90)
+                cell.setMinimumWidth(cell_width)
                 matrix_grid.addWidget(cell, i, j)
                 row_cells.append(cell)
             self.ub_matrix_cells.append(row_cells)
-        ub_layout.addWidget(matrix_frame)
-        ub_layout.addStretch()
+        results_outer_layout.addWidget(matrix_frame)
 
-        results_outer_layout.addWidget(ub_widget)
+        # Right-hand column: matrix title, then both fit methods as always-visible
+        # radio buttons (no dropdown to open), each with a one-line hint.
+        side = QWidget()
+        side_layout = QVBoxLayout(side)
+        side_layout.setContentsMargins(4, 0, 0, 0)
+        side_layout.setSpacing(2)
+        ub_title = QLabel("UB Matrix (Å⁻¹)")
+        ub_title.setStyleSheet("font-weight: bold;")
+        side_layout.addWidget(ub_title)
+        side_layout.addSpacing(10)
+        method_label = QLabel("Fit method")
+        method_label.setStyleSheet("font-weight: bold;")
+        method_label.setToolTip(_FIT_METHOD_TOOLTIP)
+        side_layout.addWidget(method_label)
+        self.method_group = QButtonGroup(self)
+        self.method_buttons = {}
+        for label, hint, method in _FIT_METHOD_CHOICES:
+            button = QRadioButton(label)
+            button.setToolTip(_FIT_METHOD_TOOLTIP)
+            self.method_group.addButton(button)
+            self.method_buttons[method] = button
+            side_layout.addWidget(button)
+            hint_label = QLabel(hint)
+            hint_label.setStyleSheet("color: gray; font-size: 11px; margin-left: 22px;")
+            side_layout.addWidget(hint_label)
+        self.method_buttons.get(self.session.fit_method, self.method_buttons[FIT_METHOD_BUSING_LEVY]).setChecked(True)
+        self.method_group.buttonToggled.connect(self._on_method_toggled)
+        side_layout.addStretch()
+        results_outer_layout.addWidget(side)
         results_outer_layout.addStretch()
 
-        self.results_group.setVisible(False)
+        for spin in (self.roll_result, self.pitch_result, self.yaw_result):
+            spin.setSuffix("")  # restored in _show_result()
+            spin.clear()  # blank, not a misleading 0.0000 before any fit
+        self._result_displayed = False  # whether a fit (possibly now stale) has been shown
         layout.addWidget(self.results_group)
 
         # Action buttons
@@ -307,7 +353,7 @@ class DiffractionTestDialog(QDialog):
         recalculating can't later restore a "valid" result on reopen that no
         longer matches the edited rows.
         """
-        if self.result is None and not self.results_group.isVisible():
+        if self.result is None and not self._result_displayed:
             return  # nothing to invalidate yet
         self.result = None
         self.session.last_result = None
@@ -368,13 +414,32 @@ class DiffractionTestDialog(QDialog):
 
         return tests
 
-    def _calculate_orientation(self):
-        """Calculate the optimal orientation from the entered data."""
+    def selected_method(self) -> str:
+        """The fit method whose radio button is checked."""
+        return next(m for m, button in self.method_buttons.items() if button.isChecked())
+
+    def _on_method_toggled(self, _button, checked):
+        """Remember the chosen fit method; if a current (non-stale) result is
+        shown, recalculate it with the new method so the two can be compared
+        by flipping between the radio buttons."""
+        if not checked:
+            return  # the button being switched off; its partner's toggle handles it
+        self.session.fit_method = self.selected_method()
+        if self.result is not None:
+            self._calculate_orientation(announce=False)
+
+    def _calculate_orientation(self, *_args, announce: bool = True):
+        """Calculate the optimal orientation from the entered data.
+
+        `*_args` swallows the `checked` flag of QPushButton.clicked.
+        """
         tests = self._get_diffraction_tests(strict=True)
         if tests is None:
             return
 
-        fit_result = fit_orientation_from_diffraction_tests(self.lattice_params, tests)
+        fit_result = fit_orientation_from_diffraction_tests(
+            self.lattice_params, tests, method=self.session.fit_method
+        )
 
         # Keep the session's raw measurements in sync regardless of outcome,
         # so a failed/rejected calculation still preserves what was typed.
@@ -393,16 +458,18 @@ class DiffractionTestDialog(QDialog):
 
         self.session.last_result = fit_result
         self.session.lattice_params_at_fit = dict(self.lattice_params)
-        self._show_result(fit_result, announce=True)
+        self._show_result(fit_result, announce=announce)
 
     def _show_result(self, fit_result, announce: bool):
         """Display an accepted OrientationFitResult and enable Apply.
 
         A fit is shown (and Apply enabled) regardless of `fit_result.quality`
-        -- the Kabsch solve always returns the least-squares-best rotation
+        -- both fit methods always return a proper rotation
         for whatever was entered, so "poor" quality is a caveat to surface,
         not a reason to withhold the result. See `_QUALITY_STYLE`.
         """
+        for spin in (self.roll_result, self.pitch_result, self.yaw_result):
+            spin.setSuffix(" °")
         self.roll_result.setValue(fit_result.roll)
         self.pitch_result.setValue(fit_result.pitch)
         self.yaw_result.setValue(fit_result.yaw)
@@ -412,7 +479,7 @@ class DiffractionTestDialog(QDialog):
         self.error_label.setStyleSheet(f"color: {color}; font-weight: bold;" if caveat else "")
 
         self.results_group.setTitle("Calculated Orientation (Updated)")
-        self.results_group.setVisible(True)
+        self._result_displayed = True
         self.apply_btn.setEnabled(True)
 
         self._set_button_highlighted(self.calculate_btn, False)
@@ -447,7 +514,8 @@ class DiffractionTestDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Calculation Complete",
-                f"Orientation calculated successfully.<br><br>"
+                f"Orientation calculated successfully "
+                f"({_FIT_METHOD_LABELS.get(fit_result.method, fit_result.method)}).<br><br>"
                 f"Roll: {fit_result.roll:.4f}°<br>"
                 f"Pitch: {fit_result.pitch:.4f}°<br>"
                 f"Yaw: {fit_result.yaw:.4f}°<br><br>"

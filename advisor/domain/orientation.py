@@ -4,8 +4,24 @@
 
 Determines the crystal orientation (roll, pitch, yaw and the U/UB matrices)
 that best explains a set of diffraction measurements (known HKL + measured
-goniometer angles), via a deterministic Kabsch/Wahba rotation-alignment
-solve rather than an iterative optimizer.
+goniometer angles), via a deterministic closed-form rotation solve rather
+than an iterative optimizer. Two methods are available (`method=`):
+
+  - Busing-Levy (`FIT_METHOD_BUSING_LEVY`, the default): measurement 1 is the
+    *primary* reflection and is matched exactly (U g_1 || q_1); measurement 2
+    is the *secondary* reflection and only fixes the rotation about q_1 (it
+    lies in the plane spanned by q_1, q_2). Further measurements don't affect
+    U, only the reported residual. This is the convention of BLISS/SPEC
+    (Busing & Levy, Acta Cryst. 22, 457 (1967)); with it ADVISOR reproduces
+    the ESRF BLISS UB matrices to their printed precision -- see
+    `tests/bliss_validation/test_bliss_ub_comparison.py`.
+  - Kabsch (`FIT_METHOD_KABSCH`): symmetric least-squares (Wahba) over all
+    measurements, described below.
+
+The two agree exactly for perfectly consistent data. They differ when the
+measured angle between reflections disagrees with the one implied by the
+lattice constants: Kabsch splits that error between all reflections,
+Busing-Levy puts it entirely on the secondary ones.
 
 For each measurement i:
   1. g_i = B.[H_i,K_i,L_i]  -- the expected reciprocal-lattice vector, bare
@@ -15,9 +31,10 @@ For each measurement i:
      exactly what's being solved for). See
      `orientation_validation.compute_measurement_vectors` for the exact
      formula and its derivation/verification notes.
-  3. Solve q_i ~= U . g_i for the proper rotation U via SVD (Kabsch), using
-     all valid measurements at once -- no local minima, no restarts, no
-     initial guess.
+  3. Solve q_i ~= U . g_i for the proper rotation U -- via SVD (Kabsch) using
+     all valid measurements at once, or via the Busing-Levy triad
+     construction from measurements 1 and 2 -- no local minima, no restarts,
+     no initial guess.
   4. U is converted to (roll, pitch, yaw) via `matrix_to_euler_zyx`
      (ZYX convention, matching `euler_to_matrix`).
   5. UB = U @ B is exposed alongside the Euler angles as a convenience.
@@ -28,14 +45,14 @@ which itself now shares its core formula with
 `scattering_geometry.domain.core._calculate_hkl` -- see
 `advisor.domain.geometry.calculate_scattering_vector`) at the fitted
 orientation, and comparing against the measured HKL values. This keeps the
-reported residual correct regardless of any subtlety in the Kabsch input
+reported residual correct regardless of any subtlety in the solver input
 derivation above.
 
 The previous multi-start L-BFGS-B optimizer has been retired from the
 shipped code; it lives on only as a regression reference in
 `tests/domain/test_legacy_optimizer_regression.py`.
 
-Weighting policy: g_i and q_i are used raw (unnormalized). The SVD solve
+Weighting policy (Kabsch): g_i and q_i are used raw (unnormalized). The SVD solve
 therefore implicitly weights each measurement by |g_i|*|q_i| (both equal at
 a consistent measurement, since rotation preserves norm) -- higher-order/
 larger-|Q| reflections pull the fit harder than low-order ones. Fit
@@ -57,6 +74,8 @@ import numpy as np
 from advisor.domain.geometry import get_reciprocal_space_vectors, matrix_to_euler_zyx
 from advisor.domain.orientation_calculator import OrientationCalculator
 from advisor.domain.orientation_types import (
+    FIT_METHOD_BUSING_LEVY,
+    FIT_METHODS,
     FIT_QUALITY_GOOD,
     FIT_QUALITY_POOR,
     FIT_QUALITY_WARNING,
@@ -65,6 +84,7 @@ from advisor.domain.orientation_types import (
     OrientationFitResult,
 )
 from advisor.domain.orientation_validation import (
+    _sin_angle_between,
     compute_measurement_vectors,
     validate_lattice_params,
     validate_measurements,
@@ -106,10 +126,27 @@ def _solve_kabsch(g_stack: np.ndarray, q_stack: np.ndarray):
     return rotation, condition_number
 
 
+def _orthonormal_triad(primary: np.ndarray, secondary: np.ndarray) -> np.ndarray:
+    """Columns: unit primary, the in-plane unit vector perpendicular to it
+    (towards secondary), and their normal -- a right-handed orthonormal basis."""
+    t1 = primary / np.linalg.norm(primary)
+    t3 = np.cross(primary, secondary)
+    t3 = t3 / np.linalg.norm(t3)
+    return np.column_stack([t1, np.cross(t3, t1), t3])
+
+
+def _solve_busing_levy(g1: np.ndarray, g2: np.ndarray, q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
+    """Busing-Levy U: the proper rotation taking the lattice-frame triad of
+    (g1, g2) onto the sample-frame triad of (q1, q2). U g1 is exactly parallel
+    to q1; U g2 lies in the (q1, q2) plane on q2's side of q1."""
+    return _orthonormal_triad(q1, q2) @ _orthonormal_triad(g1, g2).T
+
+
 def fit_orientation_from_diffraction_tests(
     lattice_params: dict,
     diffraction_tests: list,
     config: Optional[OrientationFitConfig] = None,
+    method: str = FIT_METHOD_BUSING_LEVY,
 ) -> OrientationFitResult:
     """Fit crystal orientation from diffraction test data.
 
@@ -125,17 +162,28 @@ def fit_orientation_from_diffraction_tests(
         lattice_params: dict with a, b, c (Angstrom) and alpha, beta, gamma (degrees).
         diffraction_tests: list of dicts, each with H, K, L, energy, tth, theta, phi, chi.
         config: optional OrientationFitConfig overriding the default tolerances.
+        method: `FIT_METHOD_BUSING_LEVY` (default; measurement 1 = primary,
+            measurement 2 = secondary) or `FIT_METHOD_KABSCH` (least squares
+            over all measurements). See the module docstring.
 
     Returns:
         OrientationFitResult. Use the Euler angles / UB matrix when
         `result.valid` is True (an orientation was determined); check
         `result.quality` ("good"/"warning"/"poor") for how much to trust it
         -- a completed, identifiable fit is never rejected outright, since
-        it's always the least-squares-best rotation for the given
+        it's always the chosen method's best rotation for the given
         measurements, but a "poor"-quality one should be surfaced to the
         user as a caveat rather than applied silently.
     """
     config = config or OrientationFitConfig()
+
+    if method not in FIT_METHODS:
+        return OrientationFitResult(
+            completed=False, identifiable=False, valid=False,
+            message=f"Unknown orientation-fit method {method!r}; expected one of {FIT_METHODS}.",
+            rejection_reason=f"unknown_method:{method}",
+            lattice_params=dict(lattice_params) if isinstance(lattice_params, dict) else {},
+        )
 
     try:
         lattice_clean = {k: float(lattice_params[k]) for k in _LATTICE_KEYS}
@@ -179,12 +227,32 @@ def fit_orientation_from_diffraction_tests(
             n_measurements_used=len(measurements),
         )
 
-    try:
-        vectors = [compute_measurement_vectors(lattice_clean, m) for m in measurements]
-        g_stack = np.array([g for g, _ in vectors])
-        q_stack = np.array([q for _, q in vectors])
+    vectors = [compute_measurement_vectors(lattice_clean, m) for m in measurements]
+    if method == FIT_METHOD_BUSING_LEVY:
+        # validate_measurements only requires *some* non-parallel pair; Busing-Levy
+        # specifically needs the primary and secondary (rows 1 and 2) to be one.
+        (g1, q1), (g2, q2) = vectors[0], vectors[1]
+        tol = config.parallel_sin_tolerance
+        if _sin_angle_between(g1, g2) <= tol or _sin_angle_between(q1, q2) <= tol:
+            reason = (
+                "Busing-Levy uses measurements 1 (primary) and 2 (secondary), which must be "
+                "non-parallel reflections; reorder the rows or use the Kabsch method."
+            )
+            return OrientationFitResult(
+                completed=True, identifiable=False, valid=False,
+                message=reason, rejection_reason=reason,
+                lattice_params=lattice_clean, measurements=measurements,
+                n_measurements_used=len(measurements), method=method,
+            )
 
-        rotation, condition_number = _solve_kabsch(g_stack, q_stack)
+    try:
+        if method == FIT_METHOD_BUSING_LEVY:
+            rotation = _solve_busing_levy(g1, g2, q1, q2)
+            condition_number = None
+        else:
+            g_stack = np.array([g for g, _ in vectors])
+            q_stack = np.array([q for _, q in vectors])
+            rotation, condition_number = _solve_kabsch(g_stack, q_stack)
         roll, pitch, yaw = matrix_to_euler_zyx(rotation)
 
         a_star, b_star, c_star = get_reciprocal_space_vectors(**lattice_clean)
@@ -223,7 +291,7 @@ def fit_orientation_from_diffraction_tests(
             n_measurements_used=len(measurements),
         )
 
-    # A completed, identifiable fit is always the least-squares-best
+    # A completed, identifiable fit is always the method's best
     # rotation for the given measurements -- it's never rejected outright.
     # residual_rms only grades how much to trust it (see quality below).
     if residual_rms < config.residual_rms_warning_threshold:
@@ -249,5 +317,5 @@ def fit_orientation_from_diffraction_tests(
         U=rotation, UB=ub_matrix, roll=roll, pitch=pitch, yaw=yaw,
         residual_rms=residual_rms, per_measurement_residuals=per_measurement_residuals,
         n_measurements_used=len(measurements), condition_number=condition_number,
-        lattice_params=lattice_clean, measurements=measurements,
+        lattice_params=lattice_clean, measurements=measurements, method=method,
     )

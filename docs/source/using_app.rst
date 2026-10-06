@@ -19,7 +19,12 @@ If you have diffraction test data (known HKL values with measured angles), you c
 3. Click **Calculate Orientation** to find the optimal Euler angles that fit your data.
 4. Click **Apply and Close** to populate the roll, pitch, yaw fields.
 
-The algorithm uses a deterministic Kabsch/Wahba SVD rotation-alignment solve (not an iterative optimizer) to find the orientation that best matches the calculated and measured HKL values.
+Two deterministic (non-iterative) methods are available as the **Fit method** buttons to the right of the UB matrix:
+
+- **Busing–Levy** (default): the first row is the *primary* reflection and is matched exactly. The second row is the *secondary* and only fixes the rotation about the first. This is the method BLISS/SPEC use, and the UB matches BLISS's after relabelling the lab axes (BLISS x = ADVISOR Y, along the beam; BLISS y = −ADVISOR X).
+- **Kabsch (LSQ)**: a least-squares rotation fit over all rows.
+
+The two methods give the same result when the measured angles agree perfectly with the lattice constants. Switching the method recalculates the current result.
 
 **My structures (local structure library):**
 ADVISOR remembers CIFs you've successfully loaded, on this device only, so you can come back to them later without finding the original file again.

@@ -2,8 +2,10 @@
 
 Covers:
 - OrientationCalculator forward calculation (unchanged behavior).
-- Round-trip recovery of U/(roll,pitch,yaw) via the Kabsch solver, for
-  exactly-two-measurement and overdetermined/noisy cases.
+- Round-trip recovery of U/(roll,pitch,yaw) via the Busing-Levy (default)
+  and Kabsch solvers, for exactly-two-measurement and overdetermined/noisy cases.
+- Busing-Levy specifics: primary reflection matched exactly, rows 1/2 must be
+  non-parallel, unknown methods rejected.
 - Rejection of unidentifiable input (too few measurements, parallel
   reflections, duplicates, (0,0,0), invalid energy, non-finite values).
 - The completed/identifiable/valid three-way status split.
@@ -15,6 +17,12 @@ import pytest
 
 from advisor.domain.geometry import euler_to_matrix, get_reciprocal_space_vectors
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
+from advisor.domain.orientation_types import (
+    FIT_METHOD_BUSING_LEVY,
+    FIT_METHOD_KABSCH,
+    DiffractionMeasurement,
+)
+from advisor.domain.orientation_validation import compute_measurement_vectors
 from advisor.domain.orientation_calculator import OrientationCalculator
 from tests.conftest import LATTICE_CONFIGS, consistent_diffraction_row
 
@@ -226,7 +234,7 @@ class TestOrientationFittingRoundTrip:
                 noisy[key] = noisy[key] + rng.normal(scale=1e-3)
             noisy_tests.append(noisy)
 
-        result = fit_orientation_from_diffraction_tests(orthorhombic_params, noisy_tests)
+        result = fit_orientation_from_diffraction_tests(orthorhombic_params, noisy_tests, method=FIT_METHOD_KABSCH)
         assert result.valid is True
         assert result.quality == "good"  # 1e-3-scale noise is comfortably under the 0.02 warning threshold
         check_orientation(result, true_roll, true_pitch, true_yaw, atol=1e-2)
@@ -345,7 +353,7 @@ class TestConditionNumber:
             orthorhombic_params, 3000.0, 4.0, -3.0, 9.0,
             [(90.0, 45.0, 0.0, 0.0), (60.0, 30.0, 82.0, 16.0), (120.0, 60.0, -5.0, 10.0)],
         )
-        result = fit_orientation_from_diffraction_tests(orthorhombic_params, tests)
+        result = fit_orientation_from_diffraction_tests(orthorhombic_params, tests, method=FIT_METHOD_KABSCH)
         assert result.valid is True
         assert result.condition_number is not None
         assert result.condition_number >= 1.0
@@ -464,3 +472,79 @@ class TestOrientationFittingWithDifferentCrystals:
         result = fit_orientation_from_diffraction_tests(lattice_params, tests)
         assert result.valid is True
         check_orientation(result, true_roll, true_pitch, true_yaw)
+
+
+class TestFitMethods:
+    """Busing-Levy (default) vs Kabsch."""
+
+    @pytest.fixture
+    def orthorhombic_params(self):
+        return LATTICE_CONFIGS["orthorhombic"].copy()
+
+    @pytest.fixture
+    def inconsistent_tests(self, orthorhombic_params):
+        """Exact data from a known orientation, then reflection 2's tth/theta
+        nudged so its measured angle to reflection 1 no longer matches the
+        lattice -- the two methods must then disagree slightly."""
+        tests = generate_diffraction_tests(
+            orthorhombic_params, 3000.0, 4.0, -3.0, 9.0,
+            [(90.0, 45.0, 0.0, 0.0), (60.0, 30.0, 82.0, 16.0)],
+        )
+        tests[1]["theta"] += 0.3
+        return tests
+
+    def test_default_method_is_busing_levy(self, orthorhombic_params, inconsistent_tests):
+        default = fit_orientation_from_diffraction_tests(orthorhombic_params, inconsistent_tests)
+        explicit = fit_orientation_from_diffraction_tests(
+            orthorhombic_params, inconsistent_tests, method=FIT_METHOD_BUSING_LEVY)
+        assert default.method == FIT_METHOD_BUSING_LEVY
+        np.testing.assert_array_equal(default.UB, explicit.UB)
+
+    @pytest.mark.parametrize("method", [FIT_METHOD_BUSING_LEVY, FIT_METHOD_KABSCH])
+    def test_methods_agree_on_exact_data(self, orthorhombic_params, method):
+        tests = generate_diffraction_tests(
+            orthorhombic_params, 3000.0, 10.0, -5.0, 15.0,
+            [(90.0, 45.0, 0.0, 0.0), (60.0, 30.0, 82.0, 16.0), (120.0, 60.0, -5.0, 10.0)],
+        )
+        result = fit_orientation_from_diffraction_tests(orthorhombic_params, tests, method=method)
+        assert result.valid and result.method == method
+        check_orientation(result, 10.0, -5.0, 15.0, atol=1e-6)
+
+    def test_busing_levy_matches_primary_exactly(self, orthorhombic_params, inconsistent_tests):
+        result = fit_orientation_from_diffraction_tests(orthorhombic_params, inconsistent_tests)
+        (g1, q1), (g2, q2) = [
+            compute_measurement_vectors(orthorhombic_params, DiffractionMeasurement.from_dict(t))
+            for t in inconsistent_tests
+        ]
+        predicted = result.U @ g1
+        np.testing.assert_allclose(np.cross(predicted, q1), 0.0, atol=1e-12)
+        assert predicted @ q1 > 0
+        # Secondary lies in the (q1, q2) plane: no out-of-plane component.
+        normal = np.cross(q1, q2)
+        assert abs((result.U @ g2) @ normal) < 1e-9 * np.linalg.norm(normal) * np.linalg.norm(g2)
+        assert result.per_measurement_residuals[0] < 1e-9  # r.l.u.; only the primary is exact
+        assert result.per_measurement_residuals[1] > 1e-6
+
+    def test_methods_differ_on_inconsistent_data(self, orthorhombic_params, inconsistent_tests):
+        bl = fit_orientation_from_diffraction_tests(orthorhombic_params, inconsistent_tests)
+        kabsch = fit_orientation_from_diffraction_tests(
+            orthorhombic_params, inconsistent_tests, method=FIT_METHOD_KABSCH)
+        assert bl.valid and kabsch.valid
+        assert not np.allclose(bl.UB, kabsch.UB, atol=1e-6)
+        assert np.allclose(bl.UB, kabsch.UB, atol=0.05)
+
+    def test_busing_levy_requires_rows_one_and_two_non_parallel(self, orthorhombic_params):
+        """(1,0,0) and (2,0,0) first, a good third row last: identifiable for
+        Kabsch, but Busing-Levy's primary/secondary pair is degenerate."""
+        rows = [consistent_diffraction_row(orthorhombic_params, H, K, L, 20000.0, theta, 0.0, 0.0)
+                for H, K, L, theta in [(1, 0, 0, 45.0), (2, 0, 0, 45.0), (0, 1, 1, 30.0)]]
+        kabsch = fit_orientation_from_diffraction_tests(orthorhombic_params, rows, method=FIT_METHOD_KABSCH)
+        assert kabsch.valid
+        bl = fit_orientation_from_diffraction_tests(orthorhombic_params, rows)
+        assert bl.completed and not bl.identifiable and not bl.valid
+        assert "primary" in bl.message.lower()
+
+    def test_unknown_method_rejected(self, orthorhombic_params, inconsistent_tests):
+        result = fit_orientation_from_diffraction_tests(orthorhombic_params, inconsistent_tests, method="svd")
+        assert not result.valid and not result.completed
+        assert "unknown" in result.message.lower()

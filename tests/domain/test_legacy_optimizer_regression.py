@@ -11,6 +11,7 @@ import pytest
 
 from advisor.domain.geometry import euler_to_matrix
 from advisor.domain.orientation import fit_orientation_from_diffraction_tests
+from advisor.domain.orientation_types import FIT_METHOD_KABSCH
 from advisor.domain.orientation_calculator import OrientationCalculator
 from tests.conftest import LATTICE_CONFIGS
 
@@ -139,7 +140,7 @@ def test_kabsch_agrees_with_legacy_optimizer(true_roll, true_pitch, true_yaw):
     tests = _generate_tests(lattice_params, energy, true_roll, true_pitch, true_yaw, angle_sets)
 
     legacy = _legacy_fit_orientation(lattice_params, tests)
-    new_result = fit_orientation_from_diffraction_tests(lattice_params, tests)
+    new_result = fit_orientation_from_diffraction_tests(lattice_params, tests, method=FIT_METHOD_KABSCH)
 
     assert legacy["success"] is True
     assert new_result.valid is True

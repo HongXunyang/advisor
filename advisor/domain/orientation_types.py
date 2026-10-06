@@ -19,6 +19,15 @@ import numpy as np
 
 REQUIRED_MEASUREMENT_KEYS = ("H", "K", "L", "energy", "tth", "theta", "phi", "chi")
 
+# Orientation-fit methods accepted by `fit_orientation_from_diffraction_tests`.
+# Busing-Levy (the default) matches reflection 1 exactly and uses reflection 2
+# only to fix the rotation about it -- the convention of BLISS/SPEC, so ADVISOR
+# reproduces the beamline's UB. Kabsch is a symmetric least-squares fit over all
+# reflections.
+FIT_METHOD_BUSING_LEVY = "busing_levy"
+FIT_METHOD_KABSCH = "kabsch"
+FIT_METHODS = (FIT_METHOD_BUSING_LEVY, FIT_METHOD_KABSCH)
+
 
 @dataclass(frozen=True)
 class DiffractionMeasurement:
@@ -111,8 +120,8 @@ class OrientationFitConfig:
 
     # --- fit quality grading (advisor/domain/orientation.py) ---
     # A completed, identifiable fit is ALWAYS returned and always usable
-    # (Kabsch/SVD always gives the least-squares-best rotation for whatever
-    # measurements it's given -- see the "least squares, not exact-or-fail"
+    # (both Busing-Levy and Kabsch/SVD always give a proper rotation for whatever
+    # measurements they're given -- see the "least squares, not exact-or-fail"
     # discussion in the project notes). These two thresholds only grade how
     # much to trust that best-fit result; neither one ever blocks it.
     residual_rms_warning_threshold: float = 0.02
@@ -151,9 +160,9 @@ class OrientationFitResult:
 
     `quality` (one of `FIT_QUALITY_GOOD`/`_WARNING`/`_POOR`, set only when
     `valid`) grades how much to trust the fit, from `residual_rms` against
-    `OrientationFitConfig`'s two thresholds -- but never blocks it: the
-    Kabsch/SVD solve always returns the least-squares-best rotation for
-    whatever measurements it's given, exact or noisy, so a `valid` result is
+    `OrientationFitConfig`'s two thresholds -- but never blocks it: both the
+    Busing-Levy and Kabsch/SVD solves always return a proper rotation for
+    whatever measurements they're given, exact or noisy, so a `valid` result is
     always usable. `quality` is advisory, for the UI to surface as a caveat
     (or not) -- it is the caller's judgment call whether to still apply a
     `"poor"`-quality fit.
@@ -179,6 +188,7 @@ class OrientationFitResult:
 
     lattice_params: dict = field(default_factory=dict)
     measurements: list = field(default_factory=list)  # list[DiffractionMeasurement]
+    method: Optional[str] = None  # one of FIT_METHODS; None if rejected before solving
 
 
 @dataclass
@@ -195,6 +205,8 @@ class OrientationFitSession:
     measurements: list = field(default_factory=list)  # list[DiffractionMeasurement]
     last_result: Optional[OrientationFitResult] = None
     lattice_params_at_fit: Optional[dict] = None
+    fit_method: str = FIT_METHOD_BUSING_LEVY
+    """The user's chosen method (a preference, not fit state: `clear()` keeps it)."""
 
     def is_stale_against(self, lattice_params: dict) -> bool:
         """Whether the last fit (if any) was computed against different
