@@ -3,7 +3,7 @@ Quickstart
 
 Requirements
 ------------
-- Python 3.8+
+- Python 3.9 only
 - PyQt5, numpy, scipy, matplotlib, Dans_Diffraction (see ``requirements.txt``)
 
 Install
@@ -19,7 +19,7 @@ Pick one of the following:
 
     git clone https://github.com/HongXunyang/advisor.git
     cd advisor
-    python -m venv .venv
+    python3.9 -m venv .venv
     source .venv/bin/activate  # or .venv\Scripts\activate on Windows
     pip install -r requirements.txt
     pip install .

@@ -17,17 +17,15 @@ from Dans_Diffraction import functions_crystallography as fc
 
 from advisor.domain import angle_to_matrix, get_rotation
 
-# Retain the legacy Dans_Diffraction workaround only on Matplotlib versions
-# that expose this private helper. Newer versions no longer have it in cm.
-if hasattr(cm, "_ensure_cmap"):
-    _old_ensure_cmap = cm._ensure_cmap
+# Apply the colormap patch for Dans_Diffraction compatibility
+_old_ensure_cmap = cm._ensure_cmap
 
-    def _ensure_cmap_patched(cmap):
-        if isinstance(cmap, np.ndarray):
-            return mcolors.ListedColormap(cmap)
-        return _old_ensure_cmap(cmap)
+def _ensure_cmap_patched(cmap):
+    if isinstance(cmap, np.ndarray):
+        return mcolors.ListedColormap(cmap)
+    return _old_ensure_cmap(cmap)
 
-    cm._ensure_cmap = _ensure_cmap_patched
+cm._ensure_cmap = _ensure_cmap_patched
 
 
 class UnitcellVisualizer(FigureCanvas):

@@ -1,6 +1,6 @@
 # Advisor-Scattering — Advanced Visual Scattering Toolkit for Reciprocal-space
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.9-blue.svg)
 ![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)
 [![Tests](https://github.com/HongXunyang/advisor/actions/workflows/tests.yml/badge.svg)](https://github.com/HongXunyang/advisor/actions/workflows/tests.yml)
@@ -23,7 +23,7 @@ or use the link below to view the demo video.
 
 
 ## Install
-- Python 3.8+ with PyQt5, numpy, scipy, matplotlib, Dans_Diffraction (see `requirements.txt`).
+- Python 3.9 only, with PyQt5, numpy, scipy, matplotlib, Dans_Diffraction (see `requirements.txt`).
 
 It is recommened to install from PyPI:
 ```bash
