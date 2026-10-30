@@ -7,7 +7,8 @@ on:
 jobs:
   pytest:
     name: pytest (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    # Keep Python 3.9 available instead of following ubuntu-latest upgrades.
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -25,6 +26,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            xvfb \
+            xauth \
             libegl1 \
             libopengl0 \
             libxkbcommon-x11-0 \
@@ -44,4 +47,6 @@ jobs:
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest -v
+        # Matplotlib's Qt backend also needs a valid X display, even when
+        # Qt itself uses the offscreen platform plugin.
+        run: xvfb-run -a python -m pytest -v
