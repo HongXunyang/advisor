@@ -10,12 +10,32 @@ raise out of set_parameters()).
 """
 
 import os
+import subprocess
+import sys
 
 from advisor.ui.visualizers.unitcell_visualizer import UnitcellVisualizer
 
 NACL_CIF = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "advisor", "resources", "data", "nacl.cif")
 )
+
+
+def test_import_without_legacy_matplotlib_colormap_helper():
+    """Newer Matplotlib must not fail at import due to the legacy patch."""
+    result = subprocess.run(
+        [sys.executable, "-c", """
+import matplotlib.pyplot
+import matplotlib.cm as cm
+if hasattr(cm, '_ensure_cmap'):
+    del cm._ensure_cmap
+from advisor.ui.visualizers.unitcell_visualizer import UnitcellVisualizer
+assert not hasattr(cm, '_ensure_cmap')
+"""],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 class TestSetParametersSuccess:

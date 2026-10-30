@@ -1,6 +1,17 @@
 """Shared fixtures for all tests."""
+import os
 import numpy as np
 import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """Provide QApplication to every test directory without pytest-qt."""
+    from PyQt5.QtWidgets import QApplication
+
+    return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture(autouse=True)
